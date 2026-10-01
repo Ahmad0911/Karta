@@ -1,4 +1,3 @@
-
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Role, User } from '@/types'
@@ -9,37 +8,38 @@ import type { Role, User } from '@/types'
 /**
  * MOCK AUTH
  *
- * Replace the implementation with the NestJS authentication API when the
- * backend is connected:
- *
- * - JWT authentication
- * - OTP verification
- * - Email verification
- * - Session refresh
- * - Password recovery
- *
+ * Replace with the NestJS authentication API when the backend is connected
+ * (JWT, OTP, email verification, session refresh, password recovery).
  * BRD / FR reference: FR-AUTH-001..007
+ *
+ * IMPORTANT: this mock does not check passwords, and roles live in the
+ * browser. Role and vendor approval MUST be decided by the server. Nothing
+ * here is a security boundary.
  */
 
-interface RegisterData {
+export interface RegisterData {
   name: string
   email: string
   phone: string
+  /** Only 'vendor' is honoured. Anything else becomes 'customer'. */
+  role?: Role
+  businessName?: string
 }
+
+export type RegisterResult =
+  | { ok: true }
+  | { ok: false; error: string }
 
 interface AuthState {
   user: User | null
 
-  /** Whether a user is currently authenticated. */
+  /** Registered accounts by email, so signing in again restores the profile. */
+  accounts: Record<string, User>
+
   isAuthenticated: boolean
 
-  /** Mock login — replace with API authentication later. */
   login: (email: string, role?: Role) => void
-
-  /** Mock registration — replace with API registration later. */
-  register: (data: RegisterData) => void
-
-  /** Clear the current authenticated session. */
+  register: (data: RegisterData) => RegisterResult
   logout: () => void
 }
 
@@ -47,9 +47,7 @@ interface AuthState {
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const createMockUser = (
-  data: Omit<User, 'id'>,
-): User => ({
+const createMockUser = (data: Omit<User, 'id'>): User => ({
   id: crypto.randomUUID(),
   ...data,
 })
@@ -57,9 +55,7 @@ const createMockUser = (
 const getNameFromEmail = (email: string) => {
   const localPart = email.split('@')[0]?.trim()
 
-  if (!localPart) {
-    return 'Karta Customer'
-  }
+  if (!localPart) return 'Karta Customer'
 
   return localPart
     .replace(/[._-]+/g, ' ')
@@ -73,44 +69,60 @@ const getNameFromEmail = (email: string) => {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
+      accounts: {},
       isAuthenticated: false,
 
-      login: (email, role = 'customer') => {
-        const normalizedEmail = email.trim().toLowerCase()
+      login: (email, role) => {
+        const key = email.trim().toLowerCase()
+        const existing = get().accounts[key]
 
-        const user = createMockUser({
-          name: getNameFromEmail(normalizedEmail),
-          email: normalizedEmail,
-          role,
-        })
+        // A registered account keeps its own role. An explicit role (the
+        // dev shortcuts) creates a fresh account with that role instead.
+        const user =
+          existing && (!role || existing.role === role)
+            ? existing
+            : createMockUser({
+                name: getNameFromEmail(key),
+                email: key,
+                role: role ?? 'customer',
+              })
 
-        set({
-          user,
-          isAuthenticated: true,
-        })
+        set({ user, isAuthenticated: true })
       },
 
       register: (data) => {
+        const key = data.email.trim().toLowerCase()
+
+        if (get().accounts[key]) {
+          return {
+            ok: false,
+            error: 'An account with this email already exists. Sign in instead.',
+          }
+        }
+
+        const isVendor = data.role === 'vendor'
+        const businessName = data.businessName?.trim()
+
         const user = createMockUser({
           name: data.name.trim(),
-          email: data.email.trim().toLowerCase(),
+          email: key,
           phone: data.phone.trim(),
-          role: 'customer',
+          role: isVendor ? 'vendor' : 'customer',
+          ...(isVendor && businessName ? { businessName } : {}),
         })
 
-        set({
+        set((state) => ({
           user,
           isAuthenticated: true,
-        })
+          accounts: { ...state.accounts, [key]: user },
+        }))
+
+        return { ok: true }
       },
 
-      logout: () =>
-        set({
-          user: null,
-          isAuthenticated: false,
-        }),
+      logout: () => set({ user: null, isAuthenticated: false }),
     }),
     {
       name: 'karta-auth',
