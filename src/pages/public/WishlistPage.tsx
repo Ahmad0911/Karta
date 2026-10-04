@@ -7,20 +7,13 @@ import {
   ShoppingBag,
 } from 'lucide-react'
 
-<<<<<<< HEAD
-import { getProduct } from '@/data/products'
-=======
 import { useCatalog } from '@/modules/catalog/useCatalog'
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import { useCartStore } from '@/store/cart.store'
 import ProductCard from '@/modules/catalog/components/ProductCard'
 
 export default function WishlistPage() {
-<<<<<<< HEAD
-=======
   const { getProduct } = useCatalog()
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
   useDocumentTitle('Your wishlist')
 
   const wishlist = useCartStore((s) => s.wishlist)

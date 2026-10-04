@@ -1,9 +1,5 @@
 
 import {
-<<<<<<< HEAD
-  ArrowLeft,
-=======
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
   ArrowUpRight,
   Compass,
   Home,

@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 import { uuid } from '@/lib/id'
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 
@@ -15,17 +12,6 @@ import type { Role, User } from '@/types'
 /* Karta Authentication State (MOCK)                                          */
 /* -------------------------------------------------------------------------- */
 /**
-<<<<<<< HEAD
- * MOCK AUTH
- *
- * Replace with the NestJS authentication API when the backend is connected
- * (JWT, OTP, email verification, session refresh, password recovery).
- * BRD / FR reference: FR-AUTH-001..007
- *
- * IMPORTANT: this mock does not check passwords, and roles live in the
- * browser. Role and vendor approval MUST be decided by the server. Nothing
- * here is a security boundary.
-=======
  * MOCK AUTH. Replace with the NestJS authentication API (JWT in httpOnly
  * cookies, OTP/email verification, refresh, password recovery).
  * BRD / FR reference: FR-AUTH-001..007
@@ -42,18 +28,12 @@ import type { Role, User } from '@/types'
  *    or stop someone editing localStorage. NOTHING here is a security
  *    boundary. Roles, vendor approval and admin rights MUST be decided and
  *    checked by the server on every request.
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
  */
 
 export interface RegisterData {
   name: string
   email: string
   phone: string
-<<<<<<< HEAD
-  /** Only 'vendor' is honoured. Anything else becomes 'customer'. */
-  role?: Role
-  businessName?: string
-=======
   password: string
   /** Only 'vendor' is honoured. Anything else becomes 'customer'. */
   role?: Role
@@ -79,32 +59,16 @@ export type CreateStaffResult =
 interface Attempts {
   count: number
   lockedUntil?: number
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
 }
-
-export type RegisterResult =
-  | { ok: true }
-  | { ok: false; error: string }
 
 interface AuthState {
   user: User | null
-<<<<<<< HEAD
-
-  /** Registered accounts by email, so signing in again restores the profile. */
-  accounts: Record<string, User>
-
-  isAuthenticated: boolean
-
-  login: (email: string, role?: Role) => void
-  register: (data: RegisterData) => RegisterResult
-=======
   accounts: Record<string, StoredAccount>
   attempts: Record<string, Attempts>
   isAuthenticated: boolean
 
   login: (email: string, password: string) => Promise<AuthResult>
   register: (data: RegisterData) => Promise<AuthResult>
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
   logout: () => void
 
   /** Signed-in user edits their own name and phone. Email changes need server-side verification. */
@@ -152,22 +116,11 @@ interface AuthState {
 export const MAX_ATTEMPTS = 5
 export const LOCKOUT_MS = 15 * 60 * 1000
 
-<<<<<<< HEAD
-const createMockUser = (data: Omit<User, 'id'>): User => ({
-  id: crypto.randomUUID(),
-  ...data,
-})
-=======
 const GENERIC_FAILURE = 'Incorrect email or password.'
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
 
 const normalise = (email: string) => email.trim().toLowerCase()
 
-<<<<<<< HEAD
-  if (!localPart) return 'Karta Customer'
-=======
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
 
 export const minutesLeft = (until: number, now = Date.now()) =>
   Math.max(1, Math.ceil((until - now) / 60_000))
@@ -203,53 +156,6 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       accounts: {},
-<<<<<<< HEAD
-      isAuthenticated: false,
-
-      login: (email, role) => {
-        const key = email.trim().toLowerCase()
-        const existing = get().accounts[key]
-
-        // A registered account keeps its own role. An explicit role (the
-        // dev shortcuts) creates a fresh account with that role instead.
-        const user =
-          existing && (!role || existing.role === role)
-            ? existing
-            : createMockUser({
-                name: getNameFromEmail(key),
-                email: key,
-                role: role ?? 'customer',
-              })
-
-        set({ user, isAuthenticated: true })
-      },
-
-      register: (data) => {
-        const key = data.email.trim().toLowerCase()
-
-        if (get().accounts[key]) {
-          return {
-            ok: false,
-            error: 'An account with this email already exists. Sign in instead.',
-          }
-        }
-
-        const isVendor = data.role === 'vendor'
-        const businessName = data.businessName?.trim()
-
-        const user = createMockUser({
-          name: data.name.trim(),
-          email: key,
-          phone: data.phone.trim(),
-          role: isVendor ? 'vendor' : 'customer',
-          ...(isVendor && businessName ? { businessName } : {}),
-        })
-
-        set((state) => ({
-          user,
-          isAuthenticated: true,
-          accounts: { ...state.accounts, [key]: user },
-=======
       attempts: {},
       isAuthenticated: false,
 
@@ -338,15 +244,12 @@ export const useAuthStore = create<AuthState>()(
           user,
           isAuthenticated: true,
           accounts: { ...s.accounts, [email]: { user, salt, hash } },
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
         }))
 
         return { ok: true }
       },
 
       logout: () => set({ user: null, isAuthenticated: false }),
-<<<<<<< HEAD
-=======
 
       grantLogisticsRole: (rawEmail) => {
         const me = get().user
@@ -549,7 +452,6 @@ export const useAuthStore = create<AuthState>()(
 
         return true
       },
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
     }),
     {
       name: 'karta-auth',

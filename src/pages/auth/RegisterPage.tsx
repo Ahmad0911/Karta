@@ -1,19 +1,11 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   Link,
-<<<<<<< HEAD
-=======
   Navigate,
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
   useLocation,
   useNavigate,
   useSearchParams,
 } from 'react-router-dom'
-<<<<<<< HEAD
-import Field from '@/components/ui/Field'
-import { useAuthStore } from '@/store/auth.store'
-import { useDocumentTitle } from '@/lib/useDocumentTitle'
-=======
 import { ArrowLeft, ShieldCheck } from 'lucide-react'
 
 import Field from '@/components/ui/Field'
@@ -24,20 +16,15 @@ import { isNigerianPhone } from '@/modules/vendors/lib/onboarding'
 import { useAuthStore } from '@/store/auth.store'
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
 
 export default function RegisterPage() {
   const [params] = useSearchParams()
   const location = useLocation()
   const navigate = useNavigate()
 
-<<<<<<< HEAD
-  const isVendor = params.get('as') === 'vendor'
-=======
   const as = params.get('as')
   const isVendor = as === 'vendor'
   const showChooser = as !== 'vendor' && as !== 'customer'
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
 
   useDocumentTitle(isVendor ? 'Apply to sell' : 'Create your account')
 
@@ -48,31 +35,6 @@ export default function RegisterPage() {
     password: '',
     businessName: '',
   })
-<<<<<<< HEAD
-  const [error, setError] = useState('')
-
-  const register = useAuthStore((s) => s.register)
-
-  const returnTo = (location.state as { from?: string } | null)?.from
-  const destination = returnTo ?? (isVendor ? '/vendor' : '/')
-
-  const set =
-    (key: keyof typeof f) => (e: ChangeEvent<HTMLInputElement>) =>
-      setF((prev) => ({ ...prev, [key]: e.target.value }))
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-
-    if (f.password.length < 8) {
-      setError('Your password needs at least 8 characters.')
-      return
-    }
-
-    const result = register({
-      name: f.name,
-      email: f.email,
-      phone: f.phone,
-=======
   const [agreed, setAgreed] = useState(false)
   const [show, setShow] = useState(false)
   const [error, setError] = useState('')
@@ -124,16 +86,12 @@ export default function RegisterPage() {
       email: f.email,
       phone: f.phone,
       password: f.password,
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
       role: isVendor ? 'vendor' : 'customer',
       businessName: f.businessName,
     })
 
-<<<<<<< HEAD
-=======
     setBusy(false)
 
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
     if (!result.ok) {
       setError(result.error)
       return
@@ -141,11 +99,6 @@ export default function RegisterPage() {
 
     navigate(destination, { replace: true })
   }
-<<<<<<< HEAD
-
-  return (
-    <>
-=======
 
   if (showChooser) return <RegisterChooser />
 
@@ -155,65 +108,12 @@ export default function RegisterPage() {
         <ArrowLeft aria-hidden="true" className="h-4 w-4" /> Choose a different account type
       </Link>
 
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
       <h1 className="font-display text-5xl font-medium tracking-tight">
         {isVendor ? 'Apply to sell.' : 'Create your account.'}
       </h1>
 
       <p className="mt-2 text-sm text-ink/55">
         {isVendor
-<<<<<<< HEAD
-          ? 'Tell us about you and your business. We review every vendor before pieces go live.'
-          : 'Basic verification: name, phone and email (BRD §10.1).'}
-      </p>
-
-      <form onSubmit={submit} className="mt-8 space-y-4">
-        <Field
-          label="Full name"
-          required
-          value={f.name}
-          onChange={set('name')}
-          autoComplete="name"
-        />
-
-        {isVendor && (
-          <Field
-            label="Business name"
-            required
-            value={f.businessName}
-            onChange={set('businessName')}
-            autoComplete="organization"
-          />
-        )}
-
-        <Field
-          label="Email"
-          type="email"
-          required
-          value={f.email}
-          onChange={set('email')}
-          autoComplete="email"
-        />
-
-        <Field
-          label="Phone number"
-          type="tel"
-          required
-          value={f.phone}
-          onChange={set('phone')}
-          autoComplete="tel"
-        />
-
-        <Field
-          label="Password"
-          type="password"
-          required
-          minLength={8}
-          value={f.password}
-          onChange={set('password')}
-          autoComplete="new-password"
-        />
-=======
           ? 'Create your account, then complete a short application.'
           : 'Basic verification: name, phone and email (BRD §10.1).'}
       </p>
@@ -278,7 +178,6 @@ export default function RegisterPage() {
             <Link to="/privacy" target="_blank" className="font-semibold text-ink underline underline-offset-4">privacy policy</Link>.
           </span>
         </label>
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
 
         {error && (
           <p role="alert" className="text-sm text-red-700">
@@ -286,47 +185,18 @@ export default function RegisterPage() {
           </p>
         )}
 
-<<<<<<< HEAD
-        <button className="btn-dark w-full">
-          {isVendor ? 'Submit application' : 'Create account'}
-=======
         <button className="btn-dark w-full" disabled={busy}>
           {busy ? 'Please wait…' : isVendor ? 'Create vendor account' : 'Create account'}
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
         </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-ink/55">
         Already registered?{' '}
-<<<<<<< HEAD
-        <Link
-          to="/login"
-          state={{ from: returnTo }}
-          className="font-semibold text-ink underline underline-offset-4"
-        >
-=======
         <Link to="/login" state={{ from: returnTo }} className="font-semibold text-ink underline underline-offset-4">
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
           Sign in
         </Link>
       </p>
 
-<<<<<<< HEAD
-      <p className="mt-3 text-center text-sm text-ink/55">
-        {isVendor ? 'Just shopping? ' : 'Selling furniture? '}
-        <Link
-          to={isVendor ? '/register' : '/register?as=vendor'}
-          state={location.state}
-          className="font-semibold text-ink underline underline-offset-4"
-        >
-          {isVendor ? 'Create a customer account' : 'Apply as a vendor'}
-        </Link>
-      </p>
     </>
   )
 }
-=======
-    </>
-  )
-}
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)

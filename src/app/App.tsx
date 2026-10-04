@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { useEffect, type ReactNode } from 'react'
-=======
 import { useEffect } from 'react'
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
 import {
   Navigate,
   Outlet,
@@ -106,7 +102,6 @@ function ScrollToTop() {
 /* Guards                                                                     */
 /* -------------------------------------------------------------------------- */
 
-<<<<<<< HEAD
 /**
  * Layout route that protects every child route with one RequireAuth.
  * Use it to guard a whole section (for example /account/*) once.
@@ -115,34 +110,6 @@ function Guard({ roles }: { roles?: Role[] }) {
   return (
     <RequireAuth roles={roles}>
       <Outlet />
-    </RequireAuth>
-  )
-}
-
-interface ProtectedPageProps {
-  title: string
-  note: string
-  roles?: Role[]
-}
-
-/**
- * Temporary protected shell for modules that are still being built.
- * Replace only the `ComingSoon` element when the real page exists.
- */
-function ProtectedPage({ title, note, roles }: ProtectedPageProps): ReactNode {
-  return (
-    <RequireAuth roles={roles}>
-      <ComingSoon title={title} note={note} />
-=======
-/**
- * Layout route that protects every child route with one RequireAuth.
- * Use it to guard a whole section (for example /account/*) once.
- */
-function Guard({ roles }: { roles?: Role[] }) {
-  return (
-    <RequireAuth roles={roles}>
-      <Outlet />
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
     </RequireAuth>
   )
 }
@@ -180,10 +147,6 @@ export default function App() {
           {/* Legal */}
           <Route path="privacy" element={<ContentPage slug="privacy" />} />
           <Route path="terms" element={<ContentPage slug="terms" />} />
-<<<<<<< HEAD
-
-          {/* Checkout */}
-=======
 
           {/* Apply to drive for Karta (verified by staff before any access) */}
           <Route path="apply/logistics" element={<ApplyLogisticsPage />} />
@@ -195,7 +158,6 @@ export default function App() {
           <Route path="vendors/:id" element={<VendorProfilePage />} />
 
           {/* Checkout (signed-in customers) */}
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
           <Route
             path="checkout"
             element={
@@ -204,91 +166,6 @@ export default function App() {
               </RequireAuth>
             }
           />
-<<<<<<< HEAD
-
-          {/* Customer account: guarded once for every child */}
-          <Route path="account" element={<Guard />}>
-            <Route index element={<AccountHomePage />} />
-
-            <Route
-              path="orders"
-              element={
-                <ComingSoon
-                  title="My orders"
-                  note="Order history and live delivery tracking (BRD §12)."
-                />
-              }
-            />
-
-            <Route
-              path="returns"
-              element={
-                <ComingSoon
-                  title="Returns & refunds"
-                  note="Start a return and follow its progress (BRD §12)."
-                />
-              }
-            />
-
-            <Route
-              path="support"
-              element={
-                <ComingSoon
-                  title="Support"
-                  note="Your support tickets and conversations with the Karta team (BRD §12)."
-                />
-              }
-            />
-
-            {/* Old wishlist URL now lives at /wishlist */}
-            <Route
-              path="wishlist"
-              element={<Navigate to="/wishlist" replace />}
-            />
-
-            <Route path="*" element={<Navigate to="/account" replace />} />
-          </Route>
-
-          {/* Vendor */}
-          <Route
-            path="vendor/*"
-            element={
-              <ProtectedPage
-                title="Vendor portal"
-                note="Onboarding, products, inventory, orders, analytics and settlements (BRD §13)."
-                roles={['vendor', 'admin']}
-              />
-            }
-          />
-
-          {/* Administration */}
-          <Route
-            path="admin/*"
-            element={
-              <ProtectedPage
-                title="Admin control center"
-                note="Vendor approval, product moderation, orders, finance, support and audit logs (BRD §16)."
-                roles={['admin']}
-              />
-            }
-          />
-
-          {/* Logistics */}
-          <Route
-            path="logistics/*"
-            element={
-              <ProtectedPage
-                title="Logistics"
-                note="Delivery assignment, status updates and proof of delivery (BRD §14)."
-                roles={['logistics', 'admin']}
-              />
-            }
-          />
-
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-
-=======
           <Route
             path="checkout/return"
             element={
@@ -392,15 +269,11 @@ export default function App() {
           <Route path="*" element={<Navigate to="/logistics" replace />} />
         </Route>
 
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
         {/* Authentication */}
         <Route element={<AuthLayout />}>
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
-<<<<<<< HEAD
-=======
           <Route path="forgot-password" element={<ForgotPasswordPage />} />
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
         </Route>
       </Routes>
     </>

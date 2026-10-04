@@ -6,13 +6,9 @@ import {
   LifeBuoy,
   LogOut,
   PackageSearch,
-<<<<<<< HEAD
-  Shield,
-=======
   Settings,
   Shield,
   Sparkles,
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
   Store,
   Truck,
   Undo2,
@@ -94,8 +90,6 @@ export default function AccountHomePage() {
         ]
       : []),
     {
-<<<<<<< HEAD
-=======
       to: '/account/settings',
       icon: Settings,
       title: 'Settings',
@@ -110,7 +104,6 @@ export default function AccountHomePage() {
       eyebrow: 'Made for you',
     },
     {
->>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
       to: '/account/orders',
       icon: PackageSearch,
       title: 'Orders',
