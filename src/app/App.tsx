@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { useEffect, type ReactNode } from 'react'
+=======
+import { useEffect } from 'react'
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
 import {
   Navigate,
   Outlet,
@@ -11,7 +15,6 @@ import PublicLayout from '@/layouts/PublicLayout'
 import AuthLayout from '@/layouts/AuthLayout'
 
 import RequireAuth from '@/components/layout/RequireAuth'
-import ComingSoon from '@/components/ui/ComingSoon'
 
 import HomePage from '@/pages/public/HomePage'
 import ShopPage from '@/pages/public/ShopPage'
@@ -25,6 +28,57 @@ import BecomeVendorPage from '@/pages/public/BecomeVendorPage'
 import ContentPage from '@/pages/public/ContentPage'
 import AccountHomePage from '@/pages/public/AccountHomePage'
 import NotFoundPage from '@/pages/public/NotFoundPage'
+
+import VendorLayout from '@/modules/vendors/VendorLayout'
+import VendorDashboardPage from '@/pages/vendor/VendorDashboardPage'
+import VendorOnboardingPage from '@/pages/vendor/VendorOnboardingPage'
+import VendorProductsPage from '@/pages/vendor/VendorProductsPage'
+import VendorProductFormPage from '@/pages/vendor/VendorProductFormPage'
+import VendorOrdersPage from '@/pages/vendor/VendorOrdersPage'
+import VendorOrderDetailPage from '@/pages/vendor/VendorOrderDetailPage'
+import VendorPayoutsPage from '@/pages/vendor/VendorPayoutsPage'
+import VendorInsightsPage from '@/pages/vendor/VendorInsightsPage'
+import VendorSettingsPage from '@/pages/vendor/VendorSettingsPage'
+
+import LogisticsLayout from '@/modules/logistics/LogisticsLayout'
+import LogisticsDashboardPage from '@/pages/logistics/LogisticsDashboardPage'
+import LogisticsDeliveriesPage from '@/pages/logistics/LogisticsDeliveriesPage'
+import LogisticsDeliveryDetailPage from '@/pages/logistics/LogisticsDeliveryDetailPage'
+
+import VendorReviewsPage from '@/pages/vendor/VendorReviewsPage'
+
+import AdminLayout from '@/modules/admin/AdminLayout'
+import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
+import AdminVendorsPage from '@/pages/admin/AdminVendorsPage'
+import AdminVendorDetailPage from '@/pages/admin/AdminVendorDetailPage'
+import AdminListingsPage from '@/pages/admin/AdminListingsPage'
+import AdminReviewsPage from '@/pages/admin/AdminReviewsPage'
+import AdminStaffPage from '@/pages/admin/AdminStaffPage'
+import AdminDriverApplicationsPage from '@/pages/admin/AdminDriverApplicationsPage'
+import ApplyLogisticsPage from '@/pages/auth/ApplyLogisticsPage'
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
+import AccountReturnsPage from '@/pages/account/AccountReturnsPage'
+import AccountReturnNewPage from '@/pages/account/AccountReturnNewPage'
+import AccountReturnDetailPage from '@/pages/account/AccountReturnDetailPage'
+import AccountSupportPage from '@/pages/account/AccountSupportPage'
+import AccountSupportNewPage from '@/pages/account/AccountSupportNewPage'
+import AccountSupportThreadPage from '@/pages/account/AccountSupportThreadPage'
+import VendorReturnsPage from '@/pages/vendor/VendorReturnsPage'
+import AdminReturnsPage from '@/pages/admin/AdminReturnsPage'
+import AdminSupportPage from '@/pages/admin/AdminSupportPage'
+import AdminRequestsPage from '@/pages/admin/AdminRequestsPage'
+import VendorRequestsPage from '@/pages/vendor/VendorRequestsPage'
+import RequestNewPage from '@/pages/requests/RequestNewPage'
+import AccountRequestsPage from '@/pages/account/AccountRequestsPage'
+import AccountRequestDetailPage from '@/pages/account/AccountRequestDetailPage'
+import ChangePasswordPage from '@/pages/account/ChangePasswordPage'
+import AccountSettingsPage from '@/pages/account/AccountSettingsPage'
+
+import CheckoutPage from '@/pages/checkout/CheckoutPage'
+import CheckoutReturnPage from '@/pages/checkout/CheckoutReturnPage'
+import AccountOrdersPage from '@/pages/account/AccountOrdersPage'
+import AccountOrderDetailPage from '@/pages/account/AccountOrderDetailPage'
+import VendorProfilePage from '@/pages/public/VendorProfilePage'
 
 import LoginPage from '@/pages/auth/LoginPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
@@ -52,6 +106,7 @@ function ScrollToTop() {
 /* Guards                                                                     */
 /* -------------------------------------------------------------------------- */
 
+<<<<<<< HEAD
 /**
  * Layout route that protects every child route with one RequireAuth.
  * Use it to guard a whole section (for example /account/*) once.
@@ -78,6 +133,16 @@ function ProtectedPage({ title, note, roles }: ProtectedPageProps): ReactNode {
   return (
     <RequireAuth roles={roles}>
       <ComingSoon title={title} note={note} />
+=======
+/**
+ * Layout route that protects every child route with one RequireAuth.
+ * Use it to guard a whole section (for example /account/*) once.
+ */
+function Guard({ roles }: { roles?: Role[] }) {
+  return (
+    <RequireAuth roles={roles}>
+      <Outlet />
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
     </RequireAuth>
   )
 }
@@ -115,17 +180,31 @@ export default function App() {
           {/* Legal */}
           <Route path="privacy" element={<ContentPage slug="privacy" />} />
           <Route path="terms" element={<ContentPage slug="terms" />} />
+<<<<<<< HEAD
 
           {/* Checkout */}
+=======
+
+          {/* Apply to drive for Karta (verified by staff before any access) */}
+          <Route path="apply/logistics" element={<ApplyLogisticsPage />} />
+
+          {/* Request a custom piece (signed-in customers) */}
+          <Route path="request" element={<RequireAuth><RequestNewPage /></RequireAuth>} />
+
+          {/* Public vendor pages: ratings, reviews, recommendations */}
+          <Route path="vendors/:id" element={<VendorProfilePage />} />
+
+          {/* Checkout (signed-in customers) */}
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
           <Route
             path="checkout"
             element={
-              <ProtectedPage
-                title="Checkout"
-                note="Address, delivery method, assembly, Paystack/Flutterwave payment and order review (FR-CHECK, FR-PAY)."
-              />
+              <RequireAuth>
+                <CheckoutPage />
+              </RequireAuth>
             }
           />
+<<<<<<< HEAD
 
           {/* Customer account: guarded once for every child */}
           <Route path="account" element={<Guard />}>
@@ -209,10 +288,119 @@ export default function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Route>
 
+=======
+          <Route
+            path="checkout/return"
+            element={
+              <RequireAuth>
+                <CheckoutReturnPage />
+              </RequireAuth>
+            }
+          />
+
+          {/* Customer account: guarded once for every child */}
+          <Route path="account" element={<Guard />}>
+            <Route index element={<AccountHomePage />} />
+
+            <Route path="settings" element={<AccountSettingsPage />} />
+            <Route path="security" element={<ChangePasswordPage />} />
+            <Route path="orders" element={<AccountOrdersPage />} />
+            <Route path="orders/:id" element={<AccountOrderDetailPage />} />
+
+            <Route path="requests" element={<AccountRequestsPage />} />
+            <Route path="requests/:id" element={<AccountRequestDetailPage />} />
+
+            <Route path="returns" element={<AccountReturnsPage />} />
+            <Route path="returns/new" element={<AccountReturnNewPage />} />
+            <Route path="returns/:id" element={<AccountReturnDetailPage />} />
+
+            <Route path="support" element={<AccountSupportPage />} />
+            <Route path="support/new" element={<AccountSupportNewPage />} />
+            <Route path="support/:id" element={<AccountSupportThreadPage />} />
+
+            {/* Old wishlist URL now lives at /wishlist */}
+            <Route
+              path="wishlist"
+              element={<Navigate to="/wishlist" replace />}
+            />
+
+            <Route path="*" element={<Navigate to="/account" replace />} />
+          </Route>
+
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+
+        {/* Vendor portal: own shell, guarded once for every child */}
+        <Route
+          path="vendor"
+          element={
+            <RequireAuth roles={['vendor', 'admin']}>
+              <VendorLayout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<VendorDashboardPage />} />
+          <Route path="onboarding" element={<VendorOnboardingPage />} />
+          <Route path="products" element={<VendorProductsPage />} />
+          <Route path="products/new" element={<VendorProductFormPage />} />
+          <Route path="products/:id" element={<VendorProductFormPage />} />
+          <Route path="orders" element={<VendorOrdersPage />} />
+          <Route path="orders/:id" element={<VendorOrderDetailPage />} />
+          <Route path="payouts" element={<VendorPayoutsPage />} />
+          <Route path="reviews" element={<VendorReviewsPage />} />
+          <Route path="returns" element={<VendorReturnsPage />} />
+          <Route path="requests" element={<VendorRequestsPage />} />
+          <Route path="insights" element={<VendorInsightsPage />} />
+          <Route path="settings" element={<VendorSettingsPage />} />
+          <Route path="*" element={<Navigate to="/vendor" replace />} />
+        </Route>
+
+        {/* Admin portal (staff only) */}
+        <Route
+          path="admin"
+          element={
+            <RequireAuth roles={['admin']}>
+              <AdminLayout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="vendors" element={<AdminVendorsPage />} />
+          <Route path="vendors/:email" element={<AdminVendorDetailPage />} />
+          <Route path="listings" element={<AdminListingsPage />} />
+          <Route path="reviews" element={<AdminReviewsPage />} />
+          <Route path="returns" element={<AdminReturnsPage />} />
+          <Route path="support" element={<AdminSupportPage />} />
+          <Route path="requests" element={<AdminRequestsPage />} />
+          <Route path="staff" element={<AdminStaffPage />} />
+          <Route path="drivers/applications" element={<AdminDriverApplicationsPage />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Route>
+
+        {/* Logistics portal */}
+        <Route
+          path="logistics"
+          element={
+            <RequireAuth roles={['logistics', 'admin']}>
+              <LogisticsLayout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<LogisticsDashboardPage />} />
+          <Route path="deliveries" element={<LogisticsDeliveriesPage />} />
+          <Route path="deliveries/:id" element={<LogisticsDeliveryDetailPage />} />
+          <Route path="*" element={<Navigate to="/logistics" replace />} />
+        </Route>
+
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
         {/* Authentication */}
         <Route element={<AuthLayout />}>
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
+<<<<<<< HEAD
+=======
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
         </Route>
       </Routes>
     </>

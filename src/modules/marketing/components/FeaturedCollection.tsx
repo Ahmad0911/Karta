@@ -1,10 +1,11 @@
 
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
-import { products } from '@/data/products';
+import { useCatalog } from '@/modules/catalog/useCatalog';
 import ProductCard from '@/modules/catalog/components/ProductCard';
 
 export default function FeaturedCollection() {
+  const { products } = useCatalog();
   return (
     <section
       className="

@@ -9,7 +9,7 @@ import {
   Wrench,
 } from 'lucide-react'
 
-import { getProduct } from '@/data/products'
+import { useCatalog } from '@/modules/catalog/useCatalog'
 import { formatNaira } from '@/lib/format'
 import { SITE } from '@/config/site'
 import { useCartStore } from '@/store/cart.store'
@@ -20,6 +20,7 @@ import SafeImage from '@/components/ui/SafeImage'
 import TrustBadge from '@/modules/vendors/components/TrustBadge'
 
 export default function ProductPage() {
+  const { getProduct } = useCatalog()
   const { id = '' } = useParams()
   const navigate = useNavigate()
 
@@ -166,15 +167,14 @@ export default function ProductPage() {
 
             <span className="h-1 w-1 rounded-full bg-ink/20" />
 
-            <span className="text-xs text-ink/45">
-              {product.reviewCount} verified reviews
-            </span>
-
-            <span className="h-1 w-1 rounded-full bg-ink/20" />
-
-            <span className="text-xs font-medium text-ink/60">
-              ★ {product.rating}
-            </span>
+            <Link
+              to={`/vendors/${product.vendor.id}`}
+              className="text-xs text-ink/55 underline underline-offset-4 hover:text-ink"
+            >
+              {product.reviewCount > 0
+                ? `★ ${product.rating.toFixed(1)} · ${product.reviewCount} verified review${product.reviewCount === 1 ? '' : 's'}`
+                : 'New to Karta · view vendor'}
+            </Link>
           </div>
 
           {/* Price */}

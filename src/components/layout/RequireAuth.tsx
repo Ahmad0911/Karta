@@ -74,6 +74,9 @@ export default function RequireAuth({
   children,
 }: RequireAuthProps) {
   const user = useAuthStore((state) => state.user)
+  const disabled = useAuthStore((state) =>
+    state.user ? state.accounts[state.user.email.trim().toLowerCase()]?.disabled : false,
+  )
   const location = useLocation()
 
   /* ------------------------------------------------------------------------ */
@@ -90,6 +93,20 @@ export default function RequireAuth({
         }}
       />
     )
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* Deactivated accounts and temporary passwords                             */
+  /* ------------------------------------------------------------------------ */
+
+  // A deactivated account loses access even if its session is still open.
+  if (disabled) {
+    return <Navigate to="/login" replace />
+  }
+
+  // Accounts created with a temporary password must choose their own first.
+  if (user.mustChangePassword && location.pathname !== '/account/security') {
+    return <Navigate to="/account/security" replace />
   }
 
   /* ------------------------------------------------------------------------ */

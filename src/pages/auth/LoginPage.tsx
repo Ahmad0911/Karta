@@ -16,11 +16,21 @@ export default function LoginPage() {
   useDocumentTitle('Sign in')
 
   const [email, setEmail] = useState('')
+<<<<<<< HEAD
   const login = useAuthStore((s) => s.login)
+=======
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const login = useAuthStore((s) => s.login)
+  const devLogin = useAuthStore((s) => s.devLogin)
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
   const navigate = useNavigate()
 
   const from = (useLocation().state as { from?: string } | null)?.from
 
+<<<<<<< HEAD
   const go = (role?: Role) => {
     login(email || (role ? `${role}@karta.test` : ''), role)
 
@@ -33,6 +43,36 @@ export default function LoginPage() {
   const submit = (e: FormEvent) => {
     e.preventDefault()
     go()
+=======
+  const finish = () => {
+    const signedIn = useAuthStore.getState().user
+    const landing = signedIn ? LANDING[signedIn.role] : undefined
+    navigate(from ?? landing ?? '/', { replace: true })
+  }
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (busy) return
+
+    setBusy(true)
+    setError('')
+
+    const result = await login(email, password)
+
+    setBusy(false)
+
+    if (!result.ok) {
+      setError(result.error)
+      setPassword('')
+      return
+    }
+
+    finish()
+  }
+
+  const devAs = (role: Role) => {
+    if (devLogin(email.trim() || `${role}@karta.test`, role)) finish()
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
   }
 
   return (
@@ -45,7 +85,11 @@ export default function LoginPage() {
         Sign in to continue to checkout and your orders.
       </p>
 
+<<<<<<< HEAD
       <form onSubmit={submit} className="mt-8 space-y-4">
+=======
+      <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
         <Field
           label="Email"
           type="email"
@@ -59,10 +103,31 @@ export default function LoginPage() {
           label="Password"
           type="password"
           required
+<<<<<<< HEAD
           autoComplete="current-password"
         />
 
         <button className="btn-dark w-full">Sign in</button>
+=======
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+        />
+
+        <p className="text-right text-sm">
+          <Link to="/forgot-password" className="text-ink/60 underline underline-offset-4 hover:text-ink">Forgot password?</Link>
+        </p>
+
+        {error && (
+          <p role="alert" className="text-sm text-red-700">
+            {error}
+          </p>
+        )}
+
+        <button className="btn-dark w-full" disabled={busy || !email || !password}>
+          {busy ? 'Signing in…' : 'Sign in'}
+        </button>
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
       </form>
 
       <p className="mt-6 text-center text-sm text-ink/55">
@@ -76,6 +141,7 @@ export default function LoginPage() {
         </Link>
       </p>
 
+<<<<<<< HEAD
       <p className="mt-3 text-center text-sm text-ink/55">
         Selling furniture?{' '}
         <Link
@@ -90,11 +156,20 @@ export default function LoginPage() {
       {import.meta.env.DEV && (
         <div className="mt-10 border-t border-ink/10 pt-5 text-xs text-ink/45">
           Dev only (passwords are not checked yet): sign in as{' '}
+=======
+      {import.meta.env.DEV && (
+        <div className="mt-10 border-t border-ink/10 pt-5 text-xs text-ink/45">
+          Dev only (skips the password): sign in as{' '}
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
           {(['vendor', 'admin', 'logistics'] as Role[]).map((r) => (
             <button
               key={r}
               type="button"
+<<<<<<< HEAD
               onClick={() => go(r)}
+=======
+              onClick={() => devAs(r)}
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
               className="mr-2 underline"
             >
               {r}

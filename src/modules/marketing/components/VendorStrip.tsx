@@ -1,5 +1,6 @@
 
 import { Link } from 'react-router-dom';
+import { useAuthStore } from '@/store/auth.store';
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -26,6 +27,11 @@ const BENEFITS = [
 ] as const;
 
 export default function VendorStrip() {
+  // Vendors go straight to their portal; everyone else learns about selling
+  // first. (Linking to /register would create a *customer* account.)
+  const role = useAuthStore((s) => s.user?.role);
+  const isVendor = role === 'vendor' || role === 'admin' || role === 'super_admin';
+
   return (
     <section
       className="
@@ -165,7 +171,7 @@ export default function VendorStrip() {
 
             <div className="mt-9">
               <Link
-                to="/register"
+                to={isVendor ? '/vendor' : '/become-a-vendor'}
                 className="
                   group
                   inline-flex
@@ -189,7 +195,7 @@ export default function VendorStrip() {
                   hover:shadow-[0_20px_50px_rgba(0,0,0,0.28)]
                 "
               >
-                Become a Karta vendor
+                {isVendor ? 'Open vendor portal' : 'Become a Karta vendor'}
 
                 <span
                   className="

@@ -3,13 +3,14 @@ import { useSearchParams } from 'react-router-dom'
 import { Search, SlidersHorizontal, ChevronDown, X } from 'lucide-react'
 
 import { rooms } from '@/data/rooms'
-import { products } from '@/data/products'
+import { useCatalog } from '@/modules/catalog/useCatalog'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import ProductCard from '@/modules/catalog/components/ProductCard'
 
 type Sort = 'relevance' | 'price-asc' | 'price-desc' | 'rating'
 
 export default function ShopPage() {
+  const { products } = useCatalog()
   useDocumentTitle('Shop the collection')
 
   const [params, setParams] = useSearchParams()
@@ -41,7 +42,7 @@ export default function ShopPage() {
     }
 
     return filtered
-  }, [cat, q, sort])
+  }, [products, cat, q, sort])
 
   const setCat = (id: string) => {
     const next = new URLSearchParams(params)

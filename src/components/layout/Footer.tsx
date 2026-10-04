@@ -45,7 +45,13 @@ const GROUPS: { title: string; links: FooterLink[] }[] = [
     title: 'Company',
     links: [
       ['About Karta', '/about'],
+<<<<<<< HEAD
       ['Become a vendor', '/become-a-vendor'],
+=======
+      ['Request a custom piece', '/request'],
+      ['Become a vendor', '/become-a-vendor'],
+      ['Drive for Karta', '/apply/logistics'],
+>>>>>>> c9c1a5b (Perfect the client dashboard and corresponing codes)
       ['Careers', '/careers'],
     ],
   },

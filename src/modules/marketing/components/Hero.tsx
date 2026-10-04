@@ -1,15 +1,17 @@
 
 import { Link } from 'react-router-dom';
+import { useAuthStore } from '@/store/auth.store';
 import {
   ArrowUpRight,
   Check,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
-import SafeImage from '@/components/ui/SafeImage';
-import { IMAGES } from '@/data/images';
+import HeroSlideshow from './HeroSlideshow';
 
 export default function Hero() {
+  const signedIn = useAuthStore((s) => Boolean(s.user));
+
   return (
     <section
       className="
@@ -222,7 +224,7 @@ export default function Hero() {
             </Link>
 
             <Link
-              to="/register"
+              to={signedIn ? '/account' : '/register'}
               className="
                 inline-flex
                 h-13
@@ -246,7 +248,7 @@ export default function Hero() {
                 hover:text-[#101E21]
               "
             >
-              Create an account
+              {signedIn ? 'My account' : 'Create an account'}
             </Link>
           </div>
 
@@ -351,22 +353,7 @@ export default function Hero() {
               sm:rounded-[2.5rem]
             "
           >
-            <SafeImage
-              src={IMAGES.hero}
-              alt="Curated contemporary furniture in a refined interior"
-              fallback="bg-gradient-to-br from-ink-soft to-ink"
-              className="
-                h-[30rem]
-                w-full
-                object-cover
-                transition-transform
-                duration-[1400ms]
-                ease-[cubic-bezier(0.22,1,0.36,1)]
-                hover:scale-[1.025]
-                sm:h-[38rem]
-                lg:h-[43rem]
-              "
-            >
+            <HeroSlideshow>
               {/* Cinematic overlay */}
               <div
                 className="
@@ -460,7 +447,7 @@ export default function Hero() {
                   Pieces that make a room feel like home.
                 </p>
               </div>
-            </SafeImage>
+            </HeroSlideshow>
           </div>
 
           {/* ======================================================== */}

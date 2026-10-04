@@ -37,6 +37,13 @@ export interface User {
   email: string
   phone?: string
   role: Role
+  /** Set for vendor accounts at registration. */
+  businessName?: string
+  /** Set on accounts created by staff with a temporary password. */
+  mustChangePassword?: boolean
+  /** Set only after the owner entered a code sent to this email / phone. */
+  emailVerified?: boolean
+  phoneVerified?: boolean
 }
 
 /* -------------------------------------------------------------------------- */

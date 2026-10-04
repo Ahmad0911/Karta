@@ -292,17 +292,25 @@ export default function ProductCard({ product: p }: { product: Product }) {
             text-[#101E21]/40
           "
         >
-          <span className="flex items-center gap-1">
-            <Star className="h-3 w-3 fill-[#b08a4a] text-[#b08a4a]" />
+          {p.reviewCount > 0 ? (
+            <>
+              <span className="flex items-center gap-1">
+                <Star aria-hidden="true" className="h-3 w-3 fill-[#b08a4a] text-[#b08a4a]" />
 
-            <span className="font-semibold text-[#101E21]/75">
-              {p.rating}
-            </span>
-          </span>
+                <span className="font-semibold text-[#101E21]/75">
+                  {p.rating.toFixed(1)}
+                </span>
+              </span>
 
-          <span className="h-1 w-1 rounded-full bg-[#101E21]/20" />
+              <span className="h-1 w-1 rounded-full bg-[#101E21]/20" />
 
-          <span>{p.reviewCount} reviews</span>
+              <span>
+                {p.reviewCount} vendor review{p.reviewCount === 1 ? '' : 's'}
+              </span>
+            </>
+          ) : (
+            <span>New to Karta</span>
+          )}
         </div>
 
         {/* ============================================================ */}

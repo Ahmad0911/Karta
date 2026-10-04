@@ -11,13 +11,14 @@ import {
   Truck,
 } from 'lucide-react'
 
-import { getProduct } from '@/data/products'
+import { useCatalog } from '@/modules/catalog/useCatalog'
 import { formatNaira } from '@/lib/format'
 import { SITE } from '@/config/site'
 import { useCartStore } from '@/store/cart.store'
 import SafeImage from '@/components/ui/SafeImage'
 
 export default function CartPage() {
+  const { getProduct } = useCatalog()
   const { items, setQty, remove, toggleAssembly } = useCartStore()
 
   const lines = items.flatMap((item) => {

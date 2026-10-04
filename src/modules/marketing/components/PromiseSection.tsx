@@ -254,9 +254,9 @@ export default function PromiseSection() {
                 className="
                   mt-4
                   max-w-[15rem]
-                  text-[11px]
+                  text-[12.5px]
                   leading-6
-                  text-[#101E21]/48
+                  text-[#101E21]/64
                 "
               >
                 {body}
