@@ -75,14 +75,14 @@ export interface Harness {
   makeAdmin(email?: string, role?: 'admin' | 'super_admin'): Promise<Client>
 }
 
-export async function start(env: Record<string, string> = {}): Promise<Harness> {
+export async function start(env: Record<string, string> = {}, extra: Partial<Deps> = {}): Promise<Harness> {
   let offset = 0
   const clock = { now: () => Date.now() + offset }
   const config = loadConfig({ NODE_ENV: 'test', DATABASE_PATH: ':memory:', JWT_SECRET: 'test-secret-test-secret-test-secret-123', CORS_ORIGINS: ORIGIN, EXPOSE_DEV_CODES: 'false', TRUST_PROXY: 'true', ...env })
   const db = openDb(':memory:')
   migrate(db, MIGRATIONS)
   const notifier = new MemoryNotifier()
-  const deps: Deps = { config, db, clock, log: silentLogger, notifier, limiter: new RateLimiter(clock) }
+  const deps: Deps = { config, db, clock, log: silentLogger, notifier, limiter: new RateLimiter(clock), ...extra }
 
   const handler = createApp(deps)
   const server: Server = createServer((req, res) => void handler(req, res))

@@ -35,12 +35,13 @@ export default function AccountRequestDetailPage() {
 
         <Card className="p-5 sm:p-7"><RequestSummary r={r} /></Card>
 
-        {r.status === 'open' && <Notice tone="info" title="Waiting for a vendor">Verified vendors can see your request now. You’ll get an offer here, with a price and a timeframe.</Notice>}
+        {r.status === 'open' && <Notice tone="info" title="With the Karta team">Our team is finding the right maker for you. You’ll get an offer here with a price and a timeframe, and you can message us any time.</Notice>}
+        {r.status !== 'removed' && r.status !== 'closed' && <p className="text-sm text-[#151b1c]/60">Questions about this request? <Link to={`/account/support/new?request=${r.id}`} className="font-semibold underline underline-offset-4">Message the Karta team</Link>.</p>}
         {r.status === 'removed' && <Notice tone="danger" title="This request was removed">{r.removedReason}</Notice>}
 
         {o && (r.status === 'claimed' || r.status === 'accepted' || r.status === 'ordered') && (
           <Card>
-            <CardHeader title="Offer" description={`From ${o.vendorName}`} action={<StatusPill tone="blue">{r.status === 'claimed' ? 'Awaiting your answer' : 'Accepted'}</StatusPill>} />
+            <CardHeader title="Offer" description={`Sent by Karta`} action={<StatusPill tone="blue">{r.status === 'claimed' ? 'Awaiting your answer' : 'Accepted'}</StatusPill>} />
             <div className="space-y-4 px-5 py-5 sm:px-6">
               <div className="flex flex-wrap items-end gap-x-10 gap-y-2">
                 <div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#151b1c]/40">Price</p><p className="font-display text-4xl tracking-[-0.03em]">{formatNaira(o.price)}</p></div>
@@ -51,7 +52,7 @@ export default function AccountRequestDetailPage() {
 
               {r.status === 'claimed' && (
                 <>
-                  <p className="flex items-center gap-2 text-sm text-[#8a5a14]"><Clock aria-hidden="true" className="h-4 w-4" /> {hoursLeft > 0 ? `Please answer within ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}. After that the request opens to other vendors.` : 'This offer is about to expire.'}</p>
+                  <p className="flex items-center gap-2 text-sm text-[#8a5a14]"><Clock aria-hidden="true" className="h-4 w-4" /> {hoursLeft > 0 ? `Please answer within ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}. After that the request goes back to our team.` : 'This offer is about to expire.'}</p>
                   <div className="flex flex-wrap justify-end gap-2">
                     <button type="button" className={dangerBtn} onClick={() => act(() => store.respond(r.id, 'decline'), 'Offer declined. Your request is open again.')}>Decline</button>
                     <button type="button" className={primaryBtn} onClick={() => act(() => store.respond(r.id, 'accept'), 'Offer accepted. You can now buy it.')}>Accept offer</button>

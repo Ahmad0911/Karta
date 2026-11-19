@@ -36,7 +36,7 @@ export default function Thread({ ticket, viewer }: { ticket: SupportTicket; view
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8f7651]">{ticket.number} · {CATEGORIES[ticket.category]}</p>
           <h3 className="mt-1 font-display text-xl tracking-[-0.02em]">{ticket.subject}</h3>
-          <p className="text-xs text-[#151b1c]/45">{viewer === 'staff' ? `${ticket.requesterName} · ${ticket.requesterEmail} · ` : ''}Opened {formatDateTime(ticket.createdAt)}</p>
+          <p className="text-xs text-[#151b1c]/45">{viewer === 'staff' ? `${ticket.requesterRole === 'vendor' ? 'Vendor' : 'Customer'} · ${ticket.requesterName} · ${ticket.requesterEmail} · ` : ''}Opened {formatDateTime(ticket.createdAt)}</p>
         </div>
         <StatusPill tone={meta.tone}>{meta.label}</StatusPill>
       </div>

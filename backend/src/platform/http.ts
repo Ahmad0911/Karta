@@ -42,6 +42,8 @@ export interface Ctx {
   requestId: string
   user: AuthUser | null
   cookies: Record<string, string>
+  /** Exact bytes received. Only set on webhook routes, where a signature covers them. */
+  rawBody?: string
   readonly sent: boolean
   json(status: number, body?: unknown): void
   setCookie(name: string, value: string, o?: CookieOptions): void
@@ -55,6 +57,7 @@ interface Route {
   keys: string[]
   re: RegExp
   handlers: Handler[]
+  webhook: boolean
 }
 
 /* -------------------------------------------------------------------------- */
@@ -65,9 +68,16 @@ export class Router {
   routes: Route[] = []
 
   add(method: string, pattern: string, ...handlers: Handler[]) {
+    return this.addRoute(false, method, pattern, ...handlers)
+  }
+
+  /** Server-to-server callback: no browser header or Origin (the handler MUST verify a signature). */
+  webhook = (pattern: string, ...handlers: Handler[]) => this.addRoute(true, 'POST', pattern, ...handlers)
+
+  private addRoute(webhook: boolean, method: string, pattern: string, ...handlers: Handler[]) {
     const keys: string[] = []
     const re = new RegExp('^' + pattern.replace(/:([a-zA-Z]+)/g, (_, k: string) => (keys.push(k), '([^/]+)')) + '/?$')
-    this.routes.push({ method, keys, re, handlers })
+    this.routes.push({ method, keys, re, handlers, webhook })
     return this
   }
   get = (p: string, ...h: Handler[]) => this.add('GET', p, ...h)
@@ -131,7 +141,7 @@ function parseCookies(header: string | undefined): Record<string, string> {
   return out
 }
 
-async function readBody(req: IncomingMessage, limit: number): Promise<unknown> {
+async function readBody(req: IncomingMessage, limit: number): Promise<{ raw: string; value: unknown }> {
   const chunks: Buffer[] = []
   let size = 0
   for await (const chunk of req) {
@@ -139,11 +149,12 @@ async function readBody(req: IncomingMessage, limit: number): Promise<unknown> {
     if (size > limit) throw new AppError(413, 'payload_too_large', 'That request is too large.')
     chunks.push(chunk as Buffer)
   }
-  if (size === 0) return {}
+  if (size === 0) return { raw: '', value: {} }
   const type = String(req.headers['content-type'] ?? '')
   if (!type.toLowerCase().startsWith('application/json')) throw new AppError(415, 'unsupported_media_type', 'Send JSON with Content-Type: application/json.')
   try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    const raw = Buffer.concat(chunks).toString('utf8')
+    return { raw, value: JSON.parse(raw) }
   } catch {
     throw new AppError(400, 'invalid_json', 'The request body isn’t valid JSON.')
   }
@@ -235,18 +246,25 @@ export function createHandler({ deps, router, authenticate }: AppOptions) {
         throw new AppError(429, 'rate_limited', 'Too many requests. Please slow down.', { retryAfterSec: wait })
       }
 
+      const m = router.match(method, ctx.path)
+      const isWebhook = typeof m === 'object' && m !== null && m.route.webhook
+
       // ---- CSRF: state-changing calls must come from our own web client -------------
-      if (STATE_CHANGING.has(method)) {
+      // Webhooks come from a provider's servers, not a browser; they are authenticated by signature instead.
+      if (STATE_CHANGING.has(method) && !isWebhook) {
         if (origin !== undefined && !originAllowed) throw forbidden('That origin isn’t allowed.', 'origin_not_allowed')
         if (String(req.headers[CLIENT_HEADER] ?? '').toLowerCase() !== 'web') throw forbidden('Missing client header.', 'csrf_blocked')
       }
 
-      const m = router.match(method, ctx.path)
       if (m === null) throw notFound('No such endpoint.')
       if (m === 'method') throw new AppError(405, 'method_not_allowed', 'That method isn’t allowed here.')
       ctx.params = m.params
 
-      if (STATE_CHANGING.has(method)) ctx.body = await readBody(req, config.bodyLimitBytes)
+      if (STATE_CHANGING.has(method)) {
+        const b = await readBody(req, config.bodyLimitBytes)
+        ctx.body = b.value
+        if (isWebhook) ctx.rawBody = b.raw
+      }
 
       ctx.user = await authenticate(ctx)
       userId = ctx.user?.id

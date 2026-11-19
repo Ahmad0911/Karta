@@ -42,3 +42,15 @@ describe('configuration safety', () => {
     assert.equal(c.port, 3000)
   })
 })
+
+describe('Paystack configuration', () => {
+  const prod = { NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40), NOTIFIER: 'none', CORS_ORIGINS: 'https://karta.example' }
+  it('rejects a public key where the secret belongs', () => {
+    assert.throws(() => loadConfig({ NODE_ENV: 'test', PAYSTACK_SECRET_KEY: 'pk_test_abc' }), /PAYSTACK_SECRET_KEY/)
+  })
+  it('requires a live key in production, but allows payments to be off', () => {
+    assert.throws(() => loadConfig({ ...prod, PAYSTACK_SECRET_KEY: 'sk_test_abc123' }), /live key/)
+    assert.equal(loadConfig({ ...prod, PAYSTACK_SECRET_KEY: 'sk_live_abc123' }).paystackSecretKey, 'sk_live_abc123')
+    assert.equal(loadConfig(prod).paystackSecretKey, '')
+  })
+})

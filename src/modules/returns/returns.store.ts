@@ -155,7 +155,7 @@ export const useReturnsStore = create<ReturnsState>()(
           const mine = user.role === 'vendor' && r.lines.every((l) => l.vendorEmail && norm(l.vendorEmail) === norm(user.email))
           if (!mine) return { ok: false, error: 'Only the selling vendor can respond to this return.' }
           if (r.status !== 'requested') return { ok: false, error: 'This return has already been answered.' }
-          if (decision === 'reject' && note.trim().length < 10) return { ok: false, error: 'Explain your decision (at least 10 characters). The customer will see it.' }
+          if (decision === 'reject' && note.trim().length < 10) return { ok: false, error: 'Explain your decision (at least 10 characters). Only Karta sees it.' }
 
           patch(id, (x) => ({
             ...x,

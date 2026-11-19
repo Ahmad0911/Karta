@@ -103,8 +103,8 @@ export default function ReturnPanel({ ret, viewer }: { ret: ReturnRequest; viewe
           </ul>
         )}
 
-        {ret.vendorNote && <p className="rounded-xl bg-[#151b1c]/[0.04] p-3 text-sm"><strong>Vendor:</strong> {ret.vendorNote}</p>}
-        {ret.customerNote && <p className="rounded-xl bg-[#151b1c]/[0.04] p-3 text-sm"><strong>Customer’s appeal:</strong> {ret.customerNote}</p>}
+        {ret.vendorNote && viewer !== 'customer' && <p className="rounded-xl bg-[#151b1c]/[0.04] p-3 text-sm"><strong>Vendor (not shown to customer):</strong> {ret.vendorNote}</p>}
+        {ret.customerNote && viewer !== 'vendor' && <p className="rounded-xl bg-[#151b1c]/[0.04] p-3 text-sm"><strong>Customer’s appeal:</strong> {ret.customerNote}</p>}
         {ret.adminNote && <p className="rounded-xl bg-[#151b1c]/[0.04] p-3 text-sm"><strong>Karta decision:</strong> {ret.adminNote}</p>}
 
         {ret.refund && (

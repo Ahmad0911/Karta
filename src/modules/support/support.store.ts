@@ -10,7 +10,8 @@ import { useOrdersStore } from '@/modules/orders/orders.store'
 /* Support tickets (MOCK of the support service)                              */
 /* -------------------------------------------------------------------------- */
 
-export type TicketCategory = 'order' | 'payment' | 'delivery' | 'return' | 'account' | 'vendor' | 'other'
+export type TicketCategory = 'order' | 'payment' | 'delivery' | 'return' | 'account' | 'vendor' | 'request' | 'other'
+export type RequesterRole = 'customer' | 'vendor'
 export type TicketStatus = 'open' | 'pending' | 'resolved' | 'closed'
 
 export const CATEGORIES: Record<TicketCategory, string> = {
@@ -20,6 +21,7 @@ export const CATEGORIES: Record<TicketCategory, string> = {
   return: 'A return',
   account: 'My account',
   vendor: 'A vendor',
+  request: 'A custom request',
   other: 'Something else',
 }
 
@@ -45,6 +47,10 @@ export interface SupportTicket {
   number: string
   requesterEmail: string
   requesterName: string
+  /** Who is on the other end of the chat with Karta. Vendors and customers never share a thread. */
+  requesterRole: RequesterRole
+  /** Set when the conversation is about a custom request. */
+  requestId?: string
   subject: string
   category: TicketCategory
   orderId?: string
@@ -61,7 +67,9 @@ type CreateResult = { ok: true; data: SupportTicket } | { ok: false; error: stri
 
 interface State {
   tickets: SupportTicket[]
-  create: (i: { subject: string; category: TicketCategory; message: string; orderId?: string }) => CreateResult
+  create: (i: { subject: string; category: TicketCategory; message: string; orderId?: string; requestId?: string }) => CreateResult
+  /** Staff start a conversation with a customer or a vendor (for example about a custom request). */
+  staffStart: (i: { requesterEmail: string; requesterName: string; requesterRole: RequesterRole; subject: string; category: TicketCategory; message: string; requestId?: string }) => CreateResult
   reply: (id: string, body: string) => Result
   close: (id: string) => Result
   staffReply: (id: string, body: string, opts?: { internal?: boolean; status?: TicketStatus }) => Result
@@ -90,7 +98,7 @@ export const useSupportStore = create<State>()(
       return {
         tickets: [],
 
-        create: ({ subject, category, message, orderId }) => {
+        create: ({ subject, category, message, orderId, requestId }) => {
           const u = useAuthStore.getState().user
           if (!u) return { ok: false, error: 'Please sign in to contact support.' }
 
@@ -100,7 +108,10 @@ export const useSupportStore = create<State>()(
           if (body.length < LIMITS.body[0]) return { ok: false, error: `Please add a few more details (at least ${LIMITS.body[0]} characters).` }
           if (body.length > LIMITS.body[1]) return { ok: false, error: `Please keep your message under ${LIMITS.body[1]} characters.` }
 
-          if (orderId) {
+          const role: RequesterRole = u.role === 'vendor' ? 'vendor' : 'customer'
+          if (u.role === 'admin' || u.role === 'super_admin') return { ok: false, error: 'Staff reply from the support inbox.' }
+
+          if (orderId && role === 'customer') {
             const order = useOrdersStore.getState().orders.find((o) => o.id === orderId)
             if (!order || norm(order.customerEmail) !== norm(u.email)) return { ok: false, error: 'That order isn’t on your account.' }
           }
@@ -116,9 +127,11 @@ export const useSupportStore = create<State>()(
             number: `SUP-${1001 + get().tickets.length}`,
             requesterEmail: norm(u.email),
             requesterName: u.name,
+            requesterRole: role,
+            requestId: role === 'customer' ? requestId : undefined,
             subject: sub,
             category,
-            orderId,
+            orderId: role === 'customer' ? orderId : undefined,
             status: 'open',
             messages: [{ id: uuid(), from: 'requester', author: u.name, body, at: now() }],
             createdAt: now(),
@@ -163,6 +176,30 @@ export const useSupportStore = create<State>()(
           return { ok: true }
         },
 
+        staffStart: ({ requesterEmail, requesterName, requesterRole, subject, category, message, requestId }) => {
+          if (!isStaff()) return { ok: false, error: 'Only Karta staff can start a conversation.' }
+          const sub = subject.trim().replace(/\s+/g, ' ')
+          const body = message.trim()
+          if (sub.length < LIMITS.subject[0] || sub.length > LIMITS.subject[1]) return { ok: false, error: `Give it a subject of ${LIMITS.subject[0]} to ${LIMITS.subject[1]} characters.` }
+          if (body.length < 2 || body.length > LIMITS.body[1]) return { ok: false, error: 'Write a message of up to 2,000 characters.' }
+          const ticket: SupportTicket = {
+            id: `tkt_${uuid().slice(0, 8)}`,
+            number: `SUP-${1001 + get().tickets.length}`,
+            requesterEmail: norm(requesterEmail),
+            requesterName,
+            requesterRole,
+            requestId,
+            subject: sub,
+            category,
+            status: 'pending',
+            messages: [{ id: uuid(), from: 'staff', author: 'Karta Support', body, at: now() }],
+            createdAt: now(),
+            updatedAt: now(),
+          }
+          set((s) => ({ tickets: [ticket, ...s.tickets] }))
+          return { ok: true, data: ticket }
+        },
+
         staffSetStatus: (id, status) => {
           if (!isStaff()) return { ok: false, error: 'Only Karta staff can change a request’s status.' }
           if (!find(id)) return { ok: false, error: 'Request not found.' }
@@ -171,7 +208,15 @@ export const useSupportStore = create<State>()(
         },
       }
     },
-    { name: 'karta-support', version: 1, storage: createJSONStorage(() => safeStorage) },
+    {
+      name: 'karta-support',
+      version: 2,
+      storage: createJSONStorage(() => safeStorage),
+      migrate: (persisted) => {
+        const st = persisted as { tickets?: SupportTicket[] }
+        return { ...st, tickets: (st.tickets ?? []).map((t) => ({ ...t, requesterRole: t.requesterRole ?? 'customer' })) } as never
+      },
+    },
   ),
 )
 

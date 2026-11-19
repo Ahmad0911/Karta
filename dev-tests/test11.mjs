@@ -16,6 +16,7 @@ const { vendorIdFor } = await import('@/modules/catalog/vendorId')
 
 const as = u => useAuthStore.setState({ user: u, isAuthenticated: !!u })
 const Q = () => useRequestsStore.getState(), V = () => useVendorStore.getState(), O = () => useOrdersStore.getState()
+const offerFor = (vendor, id, o) => { const prev = useAuthStore.getState().user; as(admin); const r = Q().adminOffer(id, { vendorEmail: vendor.email, ...o }); as(prev); return r }
 const cust = { id: 'c', name: 'Chidinma Okafor', email: 'chidinma@mail.com', role: 'customer', phone: '08052345678', phoneVerified: true }
 const stranger = { id: 's', name: 'Stranger', email: 'stranger@mail.com', role: 'customer', phoneVerified: true }
 const mk = (email, name) => ({ id: email, name, email, role: 'vendor' })
@@ -50,48 +51,44 @@ ok('vendors see first name + initial only (no email/phone)', r.data.customerLabe
 Q().create({ ...good, title: 'Second piece I need' }); Q().create({ ...good, title: 'Third piece I need' })
 ok(`max ${LIMITS.maxActive} active requests`, Q().create({ ...good, title: 'Fourth piece I need' }).ok === false)
 
-console.log('\nVendors make offers')
-const offer = { price: 450000, days: 21, note: 'I can build this in solid walnut with a washable cover.' }
+console.log('\nKarta brokers the offer (vendors and customers never talk)')
+const offer = { price: 450000, days: 21, note: 'Solid walnut with a washable cover, made to your photo.' }
 const id = r.data.id
-as(cust); ok('customers cannot make offers', Q().offer(id, offer).ok === false)
-as(pending); ok('UNVERIFIED vendors cannot make offers', Q().offer(id, offer).ok === false)
-as(v1)
-ok('price below ₦1,000 refused', Q().offer(id, { ...offer, price: 500 }).ok === false)
-ok('days must be 1–180', Q().offer(id, { ...offer, days: 0 }).ok === false && Q().offer(id, { ...offer, days: 400 }).ok === false)
-ok('contact details in the note refused', Q().offer(id, { ...offer, note: 'WhatsApp me and I will quote you cheaper' }).ok === false)
-ok('thin note refused', Q().offer(id, { ...offer, note: 'ok' }).ok === false)
+as(cust); ok('customers cannot send offers', Q().adminOffer(id, { vendorEmail: v1.email, ...offer }).ok === false)
+as(v1); ok('vendors cannot send offers', Q().adminOffer(id, { vendorEmail: v1.email, ...offer }).ok === false)
+ok('vendors no longer have claim/offer/withdraw actions', Q().offer === undefined && Q().withdraw === undefined)
+as(admin)
+ok('UNVERIFIED vendor cannot be used', Q().adminOffer(id, { vendorEmail: pending.email, ...offer }).ok === false)
+ok('price below ₦1,000 refused', Q().adminOffer(id, { vendorEmail: v1.email, ...offer, price: 500 }).ok === false)
+ok('days must be 1–180', Q().adminOffer(id, { vendorEmail: v1.email, ...offer, days: 0 }).ok === false && Q().adminOffer(id, { vendorEmail: v1.email, ...offer, days: 400 }).ok === false)
+ok('contact details in the note refused', Q().adminOffer(id, { vendorEmail: v1.email, ...offer, note: 'WhatsApp me and I will quote you cheaper' }).ok === false)
+ok('thin note refused', Q().adminOffer(id, { vendorEmail: v1.email, ...offer, note: 'ok' }).ok === false)
 
-console.log('\nFirst vendor wins')
-as(v1); const a = Q().offer(id, offer)
-as(v2); const b = Q().offer(id, { ...offer, price: 400000 })
-ok('first vendor claims it', a.ok)
-ok('second vendor is told it is taken', !b.ok && /already taken/.test(b.error), b.error)
+console.log('\nOffer sent by staff')
+const a = Q().adminOffer(id, { vendorEmail: v1.email, ...offer })
+const b = Q().adminOffer(id, { vendorEmail: v2.email, ...offer, price: 400000 })
+ok('staff send the offer', a.ok)
+ok('a second offer on the same request is refused', !b.ok, b.error)
 const rq = () => Q().requests.find(x => x.id === id)
-ok('request is now "claimed" by the first vendor', rq().status === 'claimed' && rq().offer.vendorEmail === 'ade@shop.ng' && rq().offer.price === 450000)
+ok('request is now "claimed" and the event is attributed to admin', rq().status === 'claimed' && rq().offer.vendorEmail === 'ade@shop.ng' && rq().events.at(-1).by === 'admin')
 ok('offer shows a 72-hour deadline', Math.abs(+new Date(rq().offer.expiresAt) - Date.now() - 72 * 3600_000) < 5000)
-
-console.log('\nCustomer decides')
 as(stranger); ok('another customer cannot answer it', Q().respond(id, 'accept').ok === false)
 as(v1); ok('the vendor cannot accept their own offer', Q().respond(id, 'accept').ok === false)
 as(cust)
-ok('customer declines → request reopens', Q().respond(id, 'decline').ok && rq().status === 'open' && !rq().offer)
-as(v1); ok('declined vendor CANNOT claim it again', Q().offer(id, offer).ok === false)
-as(v2); ok('another vendor can now claim it', Q().offer(id, { ...offer, price: 400000, days: 14 }).ok)
-as(v2); ok('vendor can withdraw, which also bars them', Q().withdraw(id).ok && rq().status === 'open' && Q().offer(id, offer).ok === false)
-as(v3); ok('a third vendor claims it', Q().offer(id, { ...offer, price: 380000, days: 18 }).ok)
+ok('customer declines → request is back with Karta', Q().respond(id, 'decline').ok && rq().status === 'open' && !rq().offer)
+as(admin); ok('staff can offer again with another vendor', Q().adminOffer(id, { vendorEmail: v3.email, ...offer, price: 380000, days: 18 }).ok)
 
 console.log('\nExpiry')
 useRequestsStore.setState(s => ({ requests: s.requests.map(x => x.id === id ? { ...x, offer: { ...x.offer, expiresAt: new Date(Date.now() - 1000).toISOString() } } : x) }))
 as(cust); ok('answering an expired offer is refused', Q().respond(id, 'accept').ok === false)
 Q().sweep()
 ok('sweep reopens a timed-out offer and bars that vendor', rq().status === 'open' && rq().declinedBy.includes('chuka@shop.ng'))
-as(v1); ok('…but v1 was declined earlier, so still barred', Q().offer(id, offer).ok === false)
-
+as(v1); 
 console.log('\nAccepting → a private piece')
 // fresh request with a new vendor pool
 as(cust); Q().close(id)
 const r2 = Q().create({ ...good, title: 'Oak bookshelf, floor to ceiling' }).data
-as(v1); Q().offer(r2.id, { price: 250000, days: 30, note: 'Solid oak with adjustable shelves, finished by hand.' })
+offerFor(v1, r2.id, { price: 250000, days: 30, note: 'Solid oak with adjustable shelves, finished by hand.' })
 as(cust)
 ok('customer accepts', Q().respond(r2.id, 'accept').ok)
 const q2 = () => Q().requests.find(x => x.id === r2.id)
@@ -121,7 +118,7 @@ ok('an ordered request cannot be closed', Q().close(r2.id).ok === false)
 
 console.log('\nClosing + moderation')
 as(cust); const r3 = Q().create({ ...good, title: 'Marble coffee table please' }).data
-as(v1); Q().offer(r3.id, { price: 200000, days: 10, note: 'Carrara marble top with brass legs.' })
+offerFor(v1, r3.id, { price: 200000, days: 10, note: 'Carrara marble top with brass legs.' })
 as(cust); Q().respond(r3.id, 'accept')
 const l3 = V().byEmail['ade@shop.ng'].listings.find(l => l.custom?.requestId === r3.id)
 ok('closing an accepted request retires the private listing', Q().close(r3.id).ok && V().byEmail['ade@shop.ng'].listings.find(l => l.id === l3.id).stock === 0)
@@ -132,20 +129,7 @@ as(cust); ok('customer cannot remove via admin route', Q().adminRemove(r4.id, 'b
 as(admin)
 ok('admin must give a reason', Q().adminRemove(r4.id, 'no').ok === false)
 ok('admin removes a request with a reason', Q().adminRemove(r4.id, 'Contains abusive language').ok && Q().requests.find(x => x.id === r4.id).status === 'removed')
-as(v1); ok('removed requests cannot be claimed', Q().offer(r4.id, offer).ok === false)
-
-console.log('\nVendors cannot hoard requests')
-const ids = []
-for (let i = 0; i < 6; i++) {
-  const c = { id: 'm' + i, name: 'Buyer ' + i, email: `buyer${i}@mail.com`, role: 'customer', phoneVerified: true }
-  as(c); ids.push(Q().create({ ...good, title: `Hoard test request ${i}` }).data.id)
-}
-as(v3)
-const results = ids.map(rid => Q().offer(rid, { price: 100000, days: 10, note: 'I can make this for you.' }))
-ok('a vendor can hold 5 offers at once', results.slice(0, 5).every(r => r.ok))
-ok('the 6th is refused until they get an answer', results[5].ok === false && /waiting/.test(results[5].error), results[5].error)
-as({ id: 'm0', name: 'Buyer 0', email: 'buyer0@mail.com', role: 'customer', phoneVerified: true }); Q().respond(ids[0], 'decline')
-as(v3); ok('…and can offer again once one is answered', Q().offer(ids[5], { price: 100000, days: 10, note: 'I can make this for you.' }).ok)
+as(admin); ok('removed requests cannot be offered on', Q().adminOffer(r4.id, { vendorEmail: v1.email, ...offer }).ok === false)
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

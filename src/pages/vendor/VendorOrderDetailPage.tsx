@@ -64,7 +64,7 @@ export default function VendorOrderDetailPage() {
       setReasonError(r.error)
       return
     }
-    toast.success('Order cancelled. The customer has been notified.')
+    toast.success('Order declined. Karta will let the customer know.')
     setCancelling(false)
   }
 
@@ -176,7 +176,7 @@ export default function VendorOrderDetailPage() {
                     label="Reason for declining"
                     required
                     error={reasonError}
-                    hint="The customer sees this. Be clear and polite."
+                    hint="Only Karta sees this. We will tell the customer, and you never contact them directly."
                   >
                     <textarea
                       id="cancel-reason"
@@ -195,7 +195,7 @@ export default function VendorOrderDetailPage() {
                       Keep order
                     </button>
                     <button type="button" className={dangerBtn} onClick={doCancel}>
-                      Decline and notify customer
+                      Decline order
                     </button>
                   </div>
                 </div>

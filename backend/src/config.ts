@@ -15,6 +15,8 @@ export interface Config {
   accessTtlSec: number
   refreshTtlSec: number
   bodyLimitBytes: number
+  /** Paystack secret key (sk_test_… / sk_live_…). Empty = payments disabled. Server only. */
+  paystackSecretKey: string
 }
 
 const DEV_SECRET = 'dev-only-secret-change-me-dev-only-secret'
@@ -30,6 +32,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const secret = env.JWT_SECRET || (prod ? '' : DEV_SECRET)
 
   const problems: string[] = []
+  if (env.PAYSTACK_SECRET_KEY && !/^sk_(test|live)_\w+$/.test(env.PAYSTACK_SECRET_KEY)) problems.push('PAYSTACK_SECRET_KEY must look like sk_test_… or sk_live_… (never the public pk_ key)')
   if (!['console', 'none'].includes(notifier)) problems.push('NOTIFIER must be "console" or "none"')
   if (origins.some((o) => o === '*' || !/^https?:\/\/[^/]+$/.test(o))) problems.push('CORS_ORIGINS must be exact origins like https://karta.example (no "*", no paths)')
   if (prod) {
@@ -38,6 +41,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     if (env.EXPOSE_DEV_CODES === 'true') problems.push('EXPOSE_DEV_CODES must not be true in production')
     if ((env.DATABASE_PATH ?? '') === ':memory:') problems.push('DATABASE_PATH cannot be :memory: in production')
     if (origins.some((o) => o.startsWith('http://'))) problems.push('CORS_ORIGINS must be https:// in production')
+    if (env.PAYSTACK_SECRET_KEY && !env.PAYSTACK_SECRET_KEY.startsWith('sk_live_')) problems.push('PAYSTACK_SECRET_KEY must be a live key (sk_live_…) in production')
   }
   if (problems.length) throw new Error(`Invalid configuration:\n - ${problems.join('\n - ')}`)
 
@@ -55,5 +59,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     accessTtlSec: 15 * 60,
     refreshTtlSec: 30 * 24 * 3600,
     bodyLimitBytes: 100 * 1024,
+    paystackSecretKey: env.PAYSTACK_SECRET_KEY ?? '',
   }
 }

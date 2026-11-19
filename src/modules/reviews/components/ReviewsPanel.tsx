@@ -81,7 +81,7 @@ export default function ReviewsPanel({
                 {r.reply && (
                   <div className="mt-4 rounded-xl bg-[#151b1c]/[0.04] p-4 text-sm leading-6">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8f7651]">
-                      Response from the vendor · {formatDate(r.reply.at)}
+                      Response from Karta · {formatDate(r.reply.at)}
                     </p>
                     <p className="mt-1.5 text-[#151b1c]/70">{r.reply.body}</p>
                   </div>

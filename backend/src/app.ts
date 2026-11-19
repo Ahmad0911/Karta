@@ -2,6 +2,8 @@ import type { Deps } from './deps.ts'
 import { adminRoutes } from './modules/admin/routes.ts'
 import { authenticate } from './modules/auth/middleware.ts'
 import { authRoutes } from './modules/auth/routes.ts'
+import { orderRoutes } from './modules/orders/routes.ts'
+import { paymentRoutes } from './modules/payments/routes.ts'
 import { vendorRoutes } from './modules/vendors/routes.ts'
 import { verificationRoutes } from './modules/verification/routes.ts'
 import { all } from './platform/db.ts'
@@ -21,6 +23,8 @@ export function createApp(deps: Deps) {
   verificationRoutes(router, deps)
   adminRoutes(router, deps)
   vendorRoutes(router, deps)
+  orderRoutes(router, deps)
+  paymentRoutes(router, deps)
 
   return createHandler({ deps, router, authenticate })
 }

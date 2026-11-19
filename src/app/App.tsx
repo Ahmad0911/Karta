@@ -63,7 +63,6 @@ import VendorReturnsPage from '@/pages/vendor/VendorReturnsPage'
 import AdminReturnsPage from '@/pages/admin/AdminReturnsPage'
 import AdminSupportPage from '@/pages/admin/AdminSupportPage'
 import AdminRequestsPage from '@/pages/admin/AdminRequestsPage'
-import VendorRequestsPage from '@/pages/vendor/VendorRequestsPage'
 import RequestNewPage from '@/pages/requests/RequestNewPage'
 import AccountRequestsPage from '@/pages/account/AccountRequestsPage'
 import AccountRequestDetailPage from '@/pages/account/AccountRequestDetailPage'
@@ -226,7 +225,9 @@ export default function App() {
           <Route path="payouts" element={<VendorPayoutsPage />} />
           <Route path="reviews" element={<VendorReviewsPage />} />
           <Route path="returns" element={<VendorReturnsPage />} />
-          <Route path="requests" element={<VendorRequestsPage />} />
+          <Route path="support" element={<AccountSupportPage />} />
+          <Route path="support/new" element={<AccountSupportNewPage />} />
+          <Route path="support/:id" element={<AccountSupportThreadPage />} />
           <Route path="insights" element={<VendorInsightsPage />} />
           <Route path="settings" element={<VendorSettingsPage />} />
           <Route path="*" element={<Navigate to="/vendor" replace />} />

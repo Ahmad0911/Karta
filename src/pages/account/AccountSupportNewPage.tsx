@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 
 import { Card, FormField, Notice, PageHeader, inputClass, primaryBtn, secondaryBtn, textareaClass } from '@/components/portal/ui'
@@ -10,7 +10,9 @@ import { useAuthStore } from '@/store/auth.store'
 import { toast } from '@/store/toast.store'
 
 export default function AccountSupportNewPage() {
-  useDocumentTitle('New support request')
+  useDocumentTitle('New message')
+  const isVendor = useLocation().pathname.startsWith('/vendor')
+  const base = isVendor ? '/vendor/support' : '/account/support'
 
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -18,8 +20,9 @@ export default function AccountSupportNewPage() {
   const allOrders = useOrdersStore((s) => s.orders)
   const orders = allOrders.filter((o) => o.customerEmail === me)
   const create = useSupportStore((s) => s.create)
+  const requestId = params.get('request') ?? undefined
 
-  const [category, setCategory] = useState<TicketCategory>(params.get('order') ? 'order' : 'other')
+  const [category, setCategory] = useState<TicketCategory>(params.get('order') ? 'order' : params.get('request') ? 'request' : 'other')
   const [orderId, setOrderId] = useState(params.get('order') ?? '')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
@@ -27,17 +30,17 @@ export default function AccountSupportNewPage() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    const r = create({ subject, category, message, orderId: orderId || undefined })
+    const r = create({ subject, category, message, orderId: orderId || undefined, requestId })
     if (!r.ok) return setError(r.error)
     toast.success('Request sent. We’ll reply here.')
-    navigate(`/account/support/${r.data.id}`, { replace: true })
+    navigate(`${base}/${r.data.id}`, { replace: true })
   }
 
   return (
-    <main className="min-h-screen bg-[#f8f6f1] text-[#151b1c]">
-      <div className="container-x max-w-2xl space-y-8 py-12 sm:py-16">
-        <Link to="/account/support" className="inline-flex items-center gap-2 text-xs font-semibold text-[#151b1c]/55 hover:text-[#151b1c]"><ArrowLeft className="h-4 w-4" /> Support</Link>
-        <PageHeader eyebrow="Help" title="Contact support" />
+    <main className={isVendor ? 'text-[#151b1c]' : 'min-h-screen bg-[#f8f6f1] text-[#151b1c]'}>
+      <div className={isVendor ? 'max-w-2xl space-y-8' : 'container-x max-w-2xl space-y-8 py-12 sm:py-16'}>
+        <Link to={base} className="inline-flex items-center gap-2 text-xs font-semibold text-[#151b1c]/55 hover:text-[#151b1c]"><ArrowLeft className="h-4 w-4" /> Support</Link>
+        <PageHeader eyebrow="Help" title={isVendor ? 'Message Karta' : 'Contact support'} />
 
         {category === 'return' && (
           <Notice tone="info" title="Want to return something?">
@@ -49,11 +52,11 @@ export default function AccountSupportNewPage() {
           <form onSubmit={submit} className="space-y-5" noValidate>
             <FormField id="s-category" label="What is this about?" required>
               <select id="s-category" className={inputClass()} value={category} onChange={(e) => setCategory(e.target.value as TicketCategory)}>
-                {(Object.keys(CATEGORIES) as TicketCategory[]).map((c) => <option key={c} value={c}>{CATEGORIES[c]}</option>)}
+                {(Object.keys(CATEGORIES) as TicketCategory[]).filter((c) => !isVendor || !['return', 'delivery', 'vendor', 'request'].includes(c)).map((c) => <option key={c} value={c}>{CATEGORIES[c]}</option>)}
               </select>
             </FormField>
 
-            {orders.length > 0 && (
+            {!isVendor && orders.length > 0 && (
               <FormField id="s-order" label="Which order? (optional)">
                 <select id="s-order" className={inputClass()} value={orderId} onChange={(e) => setOrderId(e.target.value)}>
                   <option value="">Not about a specific order</option>
@@ -75,7 +78,7 @@ export default function AccountSupportNewPage() {
             {error && <p role="alert" className="text-sm text-[#9b302d]">{error}</p>}
 
             <div className="flex justify-end gap-2">
-              <Link to="/account/support" className={secondaryBtn}>Cancel</Link>
+              <Link to={base} className={secondaryBtn}>Cancel</Link>
               <button className={primaryBtn}>Send request</button>
             </div>
           </form>

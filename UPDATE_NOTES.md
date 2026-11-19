@@ -57,3 +57,29 @@ review/recommendation thresholds, starting trust score.
 - New `backend/` folder: real API with accounts, sessions, verification codes, password reset, vendor applications + admin verification, driver accounts and an append-only audit log. 85 tests.
 - New `src/lib/api.ts` (web client). The HTTP adapters for payments and verification now send the required `x-karta-client` header.
 - The web app still runs on its browser mocks until each store is switched to the API (mapping table in `backend/README.md`). Switching them is the next step.
+
+## Karta is the go-between (no direct vendor ↔ customer contact)
+
+- **Custom requests**: vendors no longer see a Requests page. Customers post a request and chat with Karta. Staff
+  (Admin → Custom requests) message the customer, message a chosen vendor (no customer identity), then enter the
+  vendor's quote as an offer for the customer. `offer`/`withdraw` were removed from the requests store; only
+  `adminOffer` exists.
+- **Chat**: one support-thread model for both sides. Customers use `/account/support`, vendors use `/vendor/support`
+  ("Messages"), staff see everything in Admin → Inbox (each thread is labelled Customer or Vendor). Staff can start
+  a thread. Customers and vendors can never read or write each other's threads.
+- **Other direct channels removed**: vendors can't reply to reviews (staff only); a vendor's order-decline reason and
+  return decision note are visible to Karta only, not the customer.
+
+## Backend: payments (Paystack)
+
+- `backend/migrations/002_payments.sql`: listings, orders, order_lines, payments, payment_events, refunds.
+- `POST /api/orders`: the server prices the order from its own catalogue + delivery table; the browser's prices are ignored.
+- `POST /api/payments/initialize`: pays the server-computed total; return URL must be one of `CORS_ORIGINS`.
+- `GET /api/payments/verify/:reference`: asks Paystack; a redirect alone never marks anything paid.
+- `POST /api/payments/webhook/paystack`: HMAC-SHA512 signature over the raw body, then re-verified with Paystack.
+- `POST /api/payments/refund`: staff only, never more than was paid.
+- Amount and currency must equal what was requested, settlement is idempotent, duplicates/oversells are flagged in the audit log.
+- Set `PAYSTACK_SECRET_KEY` on the **server only**, set the webhook URL in the Paystack dashboard to
+  `https://YOUR-API/api/payments/webhook/paystack`, and set `VITE_PAYMENT_PROVIDER=paystack` in the web app.
+- Interim: product prices/stock must be published to the server with `PUT /api/admin/listings/:id` until vendor
+  products move into the API.

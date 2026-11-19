@@ -32,7 +32,7 @@ export default function AdminLayout() {
       { to: '/admin/vendors', label: 'Vendor applications', icon: ClipboardCheck, badge: waiting },
       { to: '/admin/listings', label: 'Listing moderation', icon: PackageSearch, badge: toModerate },
       { to: '/admin/returns', label: 'Returns', icon: Undo2, badge: returnsNeedingStaff },
-      { to: '/admin/support', label: 'Support', icon: LifeBuoy, badge: ticketsOpen },
+      { to: '/admin/support', label: 'Inbox (clients & vendors)', icon: LifeBuoy, badge: ticketsOpen },
       { to: '/admin/requests', label: 'Custom requests', icon: Sparkles },
       { to: '/admin/reviews', label: 'Reviews', icon: MessageSquareWarning },
       { to: '/admin/drivers/applications', label: 'Driver applications', icon: UserCheck, badge: driversWaiting },

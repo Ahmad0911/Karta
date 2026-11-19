@@ -5,7 +5,6 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import { safeStorage } from '@/lib/safeStorage'
 import { useAuthStore } from '@/store/auth.store'
 import { useOrdersStore } from '@/modules/orders/orders.store'
-import { vendorIdFor } from '@/modules/catalog/vendorId'
 import type { Review, ReviewTarget } from './types'
 
 /* -------------------------------------------------------------------------- */
@@ -14,7 +13,7 @@ import type { Review, ReviewTarget } from './types'
 /**
  * Integrity rules (the server must enforce the same):
  *  - Only the buyer of a DELIVERED order can review, once per order and target.
- *  - Reviews can't be edited by the vendor; vendors may reply once.
+ *  - Reviews can't be edited by the vendor; only Karta staff may reply, once.
  *  - Only staff can hide a review, and a reason is recorded.
  */
 
@@ -117,9 +116,8 @@ export const useReviewsStore = create<ReviewsState>()(
         const review = get().reviews.find((r) => r.id === reviewId)
         if (!user || !review) return { ok: false, error: 'Review not found.' }
 
-        // Only the reviewed vendor (or staff) may reply.
-        const ownsIt = review.target === 'vendor' && vendorIdFor(user.email) === review.targetId
-        if (!ownsIt && !isStaff()) return { ok: false, error: 'Only the reviewed vendor can reply.' }
+        // Vendors and customers never talk directly: only Karta staff may reply.
+        if (!isStaff()) return { ok: false, error: 'Only Karta staff can reply to reviews.' }
         if (review.reply) return { ok: false, error: 'You’ve already replied to this review.' }
 
         const text = body.trim()

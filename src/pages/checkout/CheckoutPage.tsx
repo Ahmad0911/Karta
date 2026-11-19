@@ -159,6 +159,8 @@ export default function CheckoutPage() {
         customerEmail: user.email,
         customerName: user.name,
         returnUrl: `${window.location.origin}/checkout/return`,
+        lines: order.lines.map((l) => ({ listingId: l.productId, qty: l.qty })),
+        ship: { state: order.address.state, city: order.address.city, address: [order.address.street, order.address.landmark].filter(Boolean).join(', ') },
       })
 
       if (session.mode === 'redirect' && session.checkoutUrl) {

@@ -43,8 +43,8 @@ interface State {
 
   create: (input: NewRequestInput) => CreateResult
   close: (id: string) => Result
-  offer: (id: string, o: { price: number; days: number; note: string }) => Result
-  withdraw: (id: string) => Result
+  /** Staff only: record the quote a vendor gave Karta, and pass it to the customer. */
+  adminOffer: (id: string, o: { vendorEmail: string; price: number; days: number; note: string }) => Result
   respond: (id: string, decision: 'accept' | 'decline') => Result
   adminRemove: (id: string, reason: string) => Result
 
@@ -143,52 +143,36 @@ export const useRequestsStore = create<State>()(
           return { ok: true }
         },
 
-        offer: (id, { price, days, note }) => {
-          const u = useAuthStore.getState().user
-          if (!u || u.role !== 'vendor') return { ok: false, error: 'Only vendors can make offers.' }
+        adminOffer: (id, { vendorEmail, price, days, note }) => {
+          if (!isStaff()) return { ok: false, error: 'Only Karta staff can send offers. Vendors and customers talk to Karta, never to each other.' }
 
-          const email = norm(u.email)
+          const email = norm(vendorEmail)
           const workspace = useVendorStore.getState().byEmail[email]
-          if (workspace?.profile.status !== 'approved') return { ok: false, error: 'Your vendor account must be verified before you can make offers.' }
+          if (workspace?.profile.status !== 'approved') return { ok: false, error: 'Choose a verified vendor.' }
 
           if (!Number.isInteger(price) || price < LIMITS.price[0] || price > LIMITS.price[1]) return { ok: false, error: 'Enter a price in whole naira (at least ₦1,000).' }
-          if (!Number.isInteger(days) || days < LIMITS.days[0] || days > LIMITS.days[1]) return { ok: false, error: `Enter how many days you need (${LIMITS.days[0]} to ${LIMITS.days[1]}).` }
+          if (!Number.isInteger(days) || days < LIMITS.days[0] || days > LIMITS.days[1]) return { ok: false, error: `Enter how many days it takes (${LIMITS.days[0]} to ${LIMITS.days[1]}).` }
           const text = note.trim()
           if (text.length < LIMITS.note[0] || text.length > LIMITS.note[1]) return { ok: false, error: `Add a note for the customer (${LIMITS.note[0]} to ${LIMITS.note[1]} characters).` }
           if (containsContactInfo(text)) return { ok: false, error: CONTACT_MESSAGE }
 
-          const held = get().requests.filter((r) => r.status === 'claimed' && r.offer?.vendorEmail === email).length
-          if (held >= LIMITS.maxHeldOffers) return { ok: false, error: `You already have ${LIMITS.maxHeldOffers} offers waiting for an answer. Wait for a response first.` }
-
-          // ---- the atomic part: check and claim inside ONE update ----
           let outcome: Result = { ok: false, error: 'Request not found.' }
           set((s) => ({
             requests: s.requests.map((r) => {
               if (r.id !== id) return r
-              if (norm(r.customerEmail) === email) { outcome = { ok: false, error: 'You can’t make an offer on your own request.' }; return r }
-              if (r.status !== 'open') { outcome = { ok: false, error: 'Another vendor has already taken this request.' }; return r }
-              if (r.declinedBy.includes(email)) { outcome = { ok: false, error: 'Your earlier offer on this request wasn’t taken, so you can’t claim it again.' }; return r }
-
+              if (r.status !== 'open') { outcome = { ok: false, error: 'This request already has an offer or is closed.' }; return r }
+              if (norm(r.customerEmail) === email) { outcome = { ok: false, error: 'A vendor can’t fulfil their own request.' }; return r }
               outcome = { ok: true }
               return {
                 ...r,
                 status: 'claimed' as const,
                 offer: { vendorEmail: email, vendorId: vendorIdFor(email), vendorName: workspace.profile.business.name, price, days, note: text, at: now(), expiresAt: addMs(LIMITS.offerHours * HOUR) },
-                events: [...r.events, ev('vendor', 'Offer made', `₦${price.toLocaleString('en-NG')} · ${days} days`)],
+                events: [...r.events, ev('admin', 'Offer sent by Karta', `₦${price.toLocaleString('en-NG')} · ${days} days`)],
                 updatedAt: now(),
               }
             }),
           }))
           return outcome
-        },
-
-        withdraw: (id) => {
-          const u = useAuthStore.getState().user
-          const r = find(id)
-          if (!u || !r?.offer || norm(r.offer.vendorEmail) !== norm(u.email)) return { ok: false, error: 'Offer not found.' }
-          if (r.status !== 'claimed') return { ok: false, error: 'This offer can no longer be withdrawn.' }
-          patch(id, (x) => ({ ...x, status: 'open', offer: undefined, declinedBy: [...x.declinedBy, norm(u.email)], events: [...x.events, ev('vendor', 'Offer withdrawn')] }))
-          return { ok: true }
         },
 
         respond: (id, decision) => {
@@ -214,7 +198,7 @@ export const useRequestsStore = create<State>()(
             name: `Custom: ${r.title}`,
             categoryId: r.categoryId ?? '',
             room: r.room ?? '',
-            description: `${r.description}\n\nVendor’s note: ${o.note}`,
+            description: `${r.description}\n\nKarta’s note: ${o.note}`,
             material: 'Made to order',
             dimensions: r.dimensions ?? 'As agreed',
             colors: [],
@@ -255,7 +239,7 @@ export const useRequestsStore = create<State>()(
           set((s) => ({
             requests: s.requests.map((r) => {
               if (r.status === 'claimed' && r.offer && +new Date(r.offer.expiresAt) < t) {
-                return { ...r, status: 'open' as const, offer: undefined, declinedBy: [...r.declinedBy, r.offer.vendorEmail], events: [...r.events, ev('system', 'Offer timed out', 'The customer didn’t answer in time, so the request is open again.')], updatedAt: now() }
+                return { ...r, status: 'open' as const, offer: undefined, declinedBy: [...r.declinedBy, r.offer.vendorEmail], events: [...r.events, ev('system', 'Offer timed out', 'The customer didn’t answer in time, so the request is back with Karta.')], updatedAt: now() }
               }
               if (['open', 'accepted'].includes(r.status) && +new Date(r.expiresAt) < t) {
                 if (r.offer?.listingId) useVendorStore.getState().retireCustomListing(r.offer.vendorEmail, r.offer.listingId)

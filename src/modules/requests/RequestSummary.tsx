@@ -9,7 +9,7 @@ import { NEEDED_WITHIN } from './lib'
 import type { CustomRequest, RequestStatus } from './types'
 
 export const REQUEST_STATUS: Record<RequestStatus, { label: string; tone: 'amber' | 'blue' | 'green' | 'neutral' | 'red' }> = {
-  open: { label: 'Open to vendors', tone: 'amber' },
+  open: { label: 'With Karta', tone: 'amber' },
   claimed: { label: 'Offer received', tone: 'blue' },
   accepted: { label: 'Accepted · ready to buy', tone: 'green' },
   ordered: { label: 'Ordered', tone: 'green' },
@@ -20,7 +20,7 @@ export const REQUEST_STATUS: Record<RequestStatus, { label: string; tone: 'amber
 export const budgetText = (r: CustomRequest) =>
   r.budgetMin && r.budgetMax ? `${formatNaira(r.budgetMin)} to ${formatNaira(r.budgetMax)}` : r.budgetMax ? `Up to ${formatNaira(r.budgetMax)}` : r.budgetMin ? `From ${formatNaira(r.budgetMin)}` : 'Open to quotes'
 
-/** The request itself, as customers and vendors both see it. No contact details. */
+/** The request itself, as customers and Karta staff see it. Vendors never see requests. */
 export default function RequestSummary({ r, showStatus = true }: { r: CustomRequest; showStatus?: boolean }) {
   const needed = NEEDED_WITHIN.find((n) => n.days === r.neededWithinDays)?.label ?? 'Flexible'
   const category = categories.find((c) => c.id === r.categoryId)?.name
