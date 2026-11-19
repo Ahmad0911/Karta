@@ -1,3 +1,4 @@
+import { API_HEADERS } from '@/lib/api'
 import { sha256Hex } from '@/lib/sha256'
 import { newSalt } from '@/lib/password'
 import { normalisePhone } from '@/lib/phone'
@@ -118,10 +119,10 @@ export const mockVerification: VerificationProvider = {
 /* Production: our API sends the SMS/email and checks the code                */
 /* -------------------------------------------------------------------------- */
 /**
- *   POST {API}/verification/request   { channel, target }
- *        → { resendAfter } | 429 { error, retryAfter }
- *   POST {API}/verification/confirm   { channel, target, code }
- *        → { ok: true } | 400 { error }
+ *   POST {API}/verification/request   { channel }          (target = the signed-in account's own email/phone)
+ *        → { resendAfter } | 429 { error: { message } }
+ *   POST {API}/verification/confirm   { channel, code }
+ *        → { verified } | 400 { error: { message } }
  */
 const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '')
 
@@ -130,7 +131,7 @@ async function post<T>(path: string, body: unknown): Promise<{ status: number; d
   const res = await fetch(`${API}${path}`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...API_HEADERS },
     body: JSON.stringify(body),
   })
   return { status: res.status, data: (await res.json().catch(() => ({}))) as T }
@@ -139,20 +140,20 @@ async function post<T>(path: string, body: unknown): Promise<{ status: number; d
 export const httpVerification: VerificationProvider = {
   id: 'http',
 
-  async request(channel, target) {
+  async request(channel, _target) {
     try {
-      const { status, data } = await post<{ resendAfter?: number; error?: string; retryAfter?: number }>('/verification/request', { channel, target })
-      if (status >= 400) return { ok: false, error: data.error ?? 'We couldn’t send a code. Please try again.', retryAfter: data.retryAfter }
+      const { status, data } = await post<{ resendAfter?: number; error?: { message?: string }; retryAfter?: number }>('/verification/request', { channel })
+      if (status >= 400) return { ok: false, error: data.error?.message ?? 'We couldn’t send a code. Please try again.', retryAfter: data.retryAfter }
       return { ok: true, resendAfter: data.resendAfter ?? Date.now() + CODE_RULES.resendMs }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : 'We couldn’t send a code.' }
     }
   },
 
-  async confirm(channel, target, code) {
+  async confirm(channel, _target, code) {
     try {
-      const { status, data } = await post<{ error?: string }>('/verification/confirm', { channel, target, code })
-      return status >= 400 ? { ok: false, error: data.error ?? 'That code isn’t right.' } : { ok: true }
+      const { status, data } = await post<{ error?: { message?: string } }>('/verification/confirm', { channel, code })
+      return status >= 400 ? { ok: false, error: data.error?.message ?? 'That code isn’t right.' } : { ok: true }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : 'We couldn’t check that code.' }
     }

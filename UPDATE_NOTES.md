@@ -52,3 +52,8 @@ review/recommendation thresholds, starting trust score.
 2. Register as a customer, verify your phone in Settings, then open /request and post a request.
 3. Sign in as the vendor → Requests → "I can make this" → send price and days. Sign in as the customer → My requests → Accept → "Go to the piece" → pay.
 4. After delivery (dev button on the order page): Return an item, or Get help with this order.
+
+## Backend, Phase 1 (this round)
+- New `backend/` folder: real API with accounts, sessions, verification codes, password reset, vendor applications + admin verification, driver accounts and an append-only audit log. 85 tests.
+- New `src/lib/api.ts` (web client). The HTTP adapters for payments and verification now send the required `x-karta-client` header.
+- The web app still runs on its browser mocks until each store is switched to the API (mapping table in `backend/README.md`). Switching them is the next step.

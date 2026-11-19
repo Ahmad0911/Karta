@@ -59,3 +59,9 @@ src/types/         Role, Product, TrustCategory (BRD §8, §11)
 - Auth, vendor approval, payments and reviews are **mocks** stored in the browser. Real auth, RBAC, vendor verification and payment verification must be enforced server-side (BRD §20.3). Each store action marked `MOCK` maps to one API call.
 - Logic tests: `npm run test:logic` (see `dev-tests/`) (see its README). `test6` also guards against unstable zustand selectors (an infinite render loop).
 - The BRD specifies Next.js for web. This scaffold stays on Vite; the module layout maps cleanly if you migrate.
+
+## Backend (new)
+`backend/` is the real server for the trust core (accounts, sessions, verification codes, vendor verification, audit log).
+Run it with `cd backend && npm run dev`, then point the web app at it with `VITE_API_URL=http://localhost:3000/api`.
+See `backend/README.md` for setup, the security model, the API reference and what is still mocked.
+Tests: `npm run test:all` (web logic + API).

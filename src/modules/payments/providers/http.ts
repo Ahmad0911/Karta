@@ -1,3 +1,4 @@
+import { API_HEADERS } from '@/lib/api'
 import type {
   PaymentProvider,
   PaymentRequest,
@@ -36,7 +37,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     ...init,
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: { ...API_HEADERS, ...(init?.headers ?? {}) },
   })
 
   if (!res.ok) throw new Error('We couldn’t reach the payment service. Please try again.')

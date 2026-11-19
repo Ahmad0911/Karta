@@ -1,0 +1,21 @@
+{
+  "name": "karta-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Karta API: trust core (auth, verification, vendor applications, audit).",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch --no-warnings src/server.ts",
+    "start": "node --env-file-if-exists=.env --no-warnings src/server.ts",
+    "test": "node --no-warnings --test \"tests/**/*.test.ts\"",
+    "typecheck": "tsc -p .",
+    "create-admin": "node --env-file-if-exists=.env --no-warnings src/scripts/create-admin.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3"
+  }
+}

@@ -26,7 +26,8 @@ export async function resolve(specifier, context, next) {
 export async function load(url, context, next) {
   if (url.startsWith(pathToFileURL(SRC).href.replace(/\/$/, '')) && /\.tsx?$/.test(url)) {
     let source = readFileSync(new URL(url), 'utf8')
-    source = source.replaceAll('import.meta.env', process.env.KARTA_DEV === '1' ? '({ DEV: true })' : '({})')
+    const envObj = `({ ${process.env.KARTA_DEV === '1' ? 'DEV: true,' : ''} ${process.env.KARTA_API ? `VITE_API_URL: '${process.env.KARTA_API}',` : ''} })`
+    source = source.replaceAll('import.meta.env', envObj)
     return { format: 'module-typescript', source, shortCircuit: true }
   }
   return next(url, context)
