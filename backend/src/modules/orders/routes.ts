@@ -12,7 +12,7 @@ interface OrderRow {
   id: string; number: string; customer_id: string; status: string; ship_state: string; ship_city: string; ship_address: string
   subtotal_kobo: number; delivery_kobo: number; total_kobo: number; refunded_kobo: number; created_at: string; paid_at: string | null
 }
-interface ListingRow { id: string; vendor_id: string; name: string; price_kobo: number; stock: number; status: string }
+interface ListingRow { id: string; vendor_id: string; name: string; price_kobo: number; stock: number; status: string; reserved_for: string | null }
 
 export function orderRoutes(router: Router, deps: Deps) {
   const { db, clock } = deps
@@ -43,7 +43,7 @@ export function orderRoutes(router: Router, deps: Deps) {
       let subtotal = 0
       const priced: { l: ListingRow; qty: number }[] = []
       for (const [id, qty] of merged) {
-        const l = get<ListingRow>(db, "SELECT id,vendor_id,name,price_kobo,stock,status FROM listings WHERE id = ? AND status = 'live'", id)
+        const l = get<ListingRow>(db, "SELECT id,vendor_id,name,price_kobo,stock,status,reserved_for FROM listings WHERE id = ? AND status = 'live' AND (reserved_for IS NULL OR reserved_for = ?)", id, user.id)
         if (!l) throw unprocessable('lines', 'One of the items is no longer available.')
         if (l.vendor_id === user.id) throw unprocessable('lines', 'You can’t buy your own product.')
         if (l.stock < qty) throw conflict('out_of_stock', `Only ${l.stock} of “${l.name}” left.`)

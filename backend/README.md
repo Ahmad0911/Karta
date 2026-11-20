@@ -132,3 +132,27 @@ Roles/permissions in the browser stay as UX only; the server is the authority.
 2. **Phase 3:** orders + payments (provider adapter, webhooks, idempotency) + vendor order fan-out.
 3. **Phase 4:** returns & refunds, reviews, support tickets, custom requests ("first vendor wins" as an atomic transaction).
 4. **Phase 5:** driver applications & deliveries, payouts, notifications, staff MFA, observability.
+
+## Orders, payments, requests, chat
+
+All money is in **kobo** (₦1 = 100). Every state-changing call needs the `x-karta-client: web` header, except the Paystack webhook (signature instead).
+
+| Endpoint | Who | What |
+| --- | --- | --- |
+| `POST /api/orders` | customer (phone verified) | Server prices `{lines:[{listingId,qty}], ship}` |
+| `GET /api/orders`, `/api/orders/:id` | owner / staff | |
+| `PUT /api/admin/listings/:id` | staff | Publish a listing's server-side price and stock (interim) |
+| `POST /api/payments/initialize` | customer | `{orderId, returnUrl}` → `{reference, checkoutUrl}` |
+| `GET /api/payments/verify/:reference` | owner / staff | Asks Paystack, settles once |
+| `POST /api/payments/webhook/paystack` | Paystack | HMAC-SHA512 signed |
+| `POST /api/payments/refund` | staff | Never more than was paid |
+| `POST /api/requests`, `GET /api/requests[/:id]` | customer | Custom requests |
+| `POST /api/requests/:id/respond` | customer | `{decision:'accept'\|'decline'}`; accept creates a private listing |
+| `POST /api/requests/:id/close` | customer | |
+| `GET /api/admin/requests` | staff | Includes customer details |
+| `POST /api/admin/requests/:id/offer` | staff | Record a vendor's quote and pass it on |
+| `POST /api/admin/requests/:id/remove` | staff | |
+| `POST /api/conversations`, `GET /api/conversations[/:id]`, `…/messages`, `…/close` | customer **or** vendor | Chat with Karta. Own threads only |
+| `GET/POST /api/admin/conversations…` | staff | Inbox (`?role=vendor\|customer&status=…`), reply, internal notes, set status, start a chat |
+
+Customers and vendors never share a conversation, and vendors have no access to requests.
