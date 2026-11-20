@@ -83,3 +83,13 @@ review/recommendation thresholds, starting trust score.
   `https://YOUR-API/api/payments/webhook/paystack`, and set `VITE_PAYMENT_PROVIDER=paystack` in the web app.
 - Interim: product prices/stock must be published to the server with `PUT /api/admin/listings/:id` until vendor
   products move into the API.
+
+## Real sign-in (web app ↔ backend)
+
+- `src/store/auth.api.ts` + `auth.store.ts`: login, register, logout, change password, profile, delete account and
+  session restore now go to the API (httpOnly cookies, roles decided by the server). The store's interface is
+  unchanged, so no screens changed.
+- **Production builds use the API automatically** (needs `VITE_API_URL`). They can never fall back to the browser-only
+  demo accounts. Development keeps the demo accounts unless `VITE_AUTH_PROVIDER=api`.
+- On startup `bootstrapSession()` checks the session with the server; an expired session signs the person out.
+- Still local-only: "forgot password" screens, staff creating driver accounts, and approving drivers.

@@ -1,6 +1,8 @@
 import { uuid } from '@/lib/id'
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
+import { api, apiGet, apiPost } from '@/lib/api'
+import { AUTH_API, errorText, toUser, type ApiUser } from './auth.api'
 
 import { hashPassword, newSalt, passwordProblem, safeEqual } from '@/lib/password'
 import { samePhone } from '@/lib/phone'
@@ -160,6 +162,15 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
 
       login: async (rawEmail, password) => {
+        if (AUTH_API) {
+          try {
+            const r = await apiPost<{ user: ApiUser }>('/auth/login', { email: normalise(rawEmail), password })
+            set({ user: toUser(r.user), isAuthenticated: true })
+            return { ok: true }
+          } catch (e) {
+            return { ok: false, error: errorText(e) }
+          }
+        }
         const email = normalise(rawEmail)
         const state = get()
         const lock = state.attempts[email]
@@ -211,6 +222,19 @@ export const useAuthStore = create<AuthState>()(
       },
 
       register: async (data) => {
+        if (AUTH_API) {
+          try {
+            const r = await apiPost<{ user: ApiUser }>('/auth/register', {
+              name: data.name, email: normalise(data.email), phone: data.phone, password: data.password,
+              role: data.role === 'vendor' ? 'vendor' : 'customer',
+              ...(data.role === 'vendor' ? { businessName: data.businessName } : {}),
+            })
+            set({ user: toUser(r.user), isAuthenticated: true })
+            return { ok: true }
+          } catch (e) {
+            return { ok: false, error: errorText(e) }
+          }
+        }
         const email = normalise(data.email)
 
         if (!EMAIL.test(email)) return { ok: false, error: 'Enter a valid email address.' }
@@ -249,7 +273,10 @@ export const useAuthStore = create<AuthState>()(
         return { ok: true }
       },
 
-      logout: () => set({ user: null, isAuthenticated: false }),
+      logout: () => {
+        set({ user: null, isAuthenticated: false })
+        if (AUTH_API) void apiPost('/auth/logout').catch(() => undefined)
+      },
 
       grantLogisticsRole: (rawEmail) => {
         const me = get().user
@@ -269,6 +296,14 @@ export const useAuthStore = create<AuthState>()(
       },
 
       markContactVerified: (channel, target) => {
+        if (AUTH_API) {
+          // The server already recorded it when the code was confirmed; mirror that and re-read the account.
+          const me = get().user
+          if (!me) return { ok: false, error: 'Please sign in again.' }
+          set({ user: { ...me, ...(channel === 'email' ? { emailVerified: true } : { phoneVerified: true }) } })
+          void get().refreshSession()
+          return { ok: true }
+        }
         const me = get().user
         const k = me ? normalise(me.email) : ''
         const account = get().accounts[k]
@@ -310,6 +345,12 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshSession: () => {
+        if (AUTH_API) {
+          void apiGet<{ user: ApiUser }>('/auth/me')
+            .then((r) => set({ user: toUser(r.user), isAuthenticated: true }))
+            .catch(() => undefined)
+          return
+        }
         const me = get().user
         const account = me ? get().accounts[normalise(me.email)] : undefined
         if (me && account && !account.disabled && account.user.role !== me.role) {
@@ -318,6 +359,20 @@ export const useAuthStore = create<AuthState>()(
       },
 
       updateProfile: ({ name, phone }) => {
+        if (AUTH_API) {
+          const me = get().user
+          if (!me) return { ok: false, error: 'Please sign in again.' }
+          const cleanName = name.trim().replace(/\s+/g, ' ')
+          if (cleanName.length < 2) return { ok: false, error: 'Enter your full name.' }
+          if (!isNigerianPhone(phone)) return { ok: false, error: 'Enter a valid Nigerian phone number, for example 0803 123 4567.' }
+          const phoneChanged = !samePhone(phone, me.phone ?? '')
+          set({ user: { ...me, name: cleanName, phone: phone.trim(), ...(phoneChanged ? { phoneVerified: false } : {}) } })
+          // The server has the final say; if it disagrees we show what it actually stored.
+          void api<{ user: ApiUser }>('PATCH', '/me', { name: cleanName, phone: phone.trim() })
+            .then((r) => set({ user: toUser(r.user) }))
+            .catch(() => get().refreshSession())
+          return { ok: true }
+        }
         const me = get().user
         const k = me ? normalise(me.email) : ''
         const account = get().accounts[k]
@@ -336,6 +391,15 @@ export const useAuthStore = create<AuthState>()(
       },
 
       deleteOwnAccount: async (password) => {
+        if (AUTH_API) {
+          try {
+            await api('DELETE', '/me', { password })
+            set({ user: null, isAuthenticated: false })
+            return { ok: true }
+          } catch (e) {
+            return { ok: false, error: errorText(e) }
+          }
+        }
         const me = get().user
         const k = me ? normalise(me.email) : ''
         const account = get().accounts[k]
@@ -358,6 +422,15 @@ export const useAuthStore = create<AuthState>()(
       },
 
       changePassword: async (current, next) => {
+        if (AUTH_API) {
+          try {
+            const r = await apiPost<{ user: ApiUser }>('/auth/password/change', { currentPassword: current, newPassword: next })
+            set({ user: toUser(r.user) })
+            return { ok: true }
+          } catch (e) {
+            return { ok: false, error: errorText(e) }
+          }
+        }
         const me = get().user
         const account = me ? get().accounts[normalise(me.email)] : undefined
         if (!me || !account) return { ok: false, error: 'Please sign in again.' }
@@ -463,3 +536,19 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 )
+
+/**
+ * On startup, ask the server who is signed in. The saved user is only a hint: if the session has
+ * expired (or was revoked) the person is signed out here instead of seeing errors on every page.
+ */
+export async function bootstrapSession(): Promise<void> {
+  if (!AUTH_API || !useAuthStore.getState().user) return
+  try {
+    const r = await apiGet<{ user: ApiUser }>('/auth/me')
+    useAuthStore.setState({ user: toUser(r.user), isAuthenticated: true })
+  } catch (e) {
+    if (e instanceof Error && 'status' in e && (e as { status: number }).status === 401) {
+      useAuthStore.setState({ user: null, isAuthenticated: false })
+    }
+  }
+}
