@@ -23,6 +23,9 @@ export function orderRoutes(router: Router, deps: Deps) {
     ship: { state: o.ship_state, city: o.ship_city, address: o.ship_address },
     subtotalKobo: o.subtotal_kobo, deliveryKobo: o.delivery_kobo, totalKobo: o.total_kobo, refundedKobo: o.refunded_kobo,
     lines: linesOf(o.id).map((l) => ({ listingId: l.listing_id, name: l.name, unitPriceKobo: l.unit_price_kobo, qty: l.qty })),
+    fulfilment: all<{ number: string; status: string; updated_at: string; business_name: string | null }>(db,
+      'SELECT vo.number, vo.status, vo.updated_at, u.business_name FROM vendor_orders vo JOIN users u ON u.id = vo.vendor_id WHERE vo.order_id = ? ORDER BY vo.number', o.id)
+      .map((f) => ({ number: f.number, status: f.status, updatedAt: f.updated_at, vendorName: f.business_name ?? 'Vendor' })),
     createdAt: o.created_at, paidAt: o.paid_at,
   })
 

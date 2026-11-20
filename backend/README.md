@@ -156,3 +156,22 @@ All money is in **kobo** (₦1 = 100). Every state-changing call needs the `x-ka
 | `GET/POST /api/admin/conversations…` | staff | Inbox (`?role=vendor\|customer&status=…`), reply, internal notes, set status, start a chat |
 
 Customers and vendors never share a conversation, and vendors have no access to requests.
+
+## Products and fulfilment
+
+| Endpoint | Who | What |
+| --- | --- | --- |
+| `GET/POST /api/vendor/listings`, `GET/PUT/DELETE /api/vendor/listings/:id` | vendor | Draft needs only a name. Images are URLs (max 4) |
+| `POST /api/vendor/listings/:id/submit` | approved vendor | Lists every missing field; goes to review |
+| `POST /api/vendor/listings/:id/pause` / `resume` | vendor | |
+| `GET /api/admin/listings`, `POST /api/admin/listings/:id/review` | staff | `approve` or `send_back` (with a note) |
+| `GET /api/catalog`, `GET /api/catalog/:id` | public | Live pieces only. A made-for-you piece is visible to its customer only |
+| `GET /api/vendor/orders[/:id]` | vendor | Own items only; customer shown as "Chidinma O." + city |
+| `POST /api/vendor/orders/:id/advance` / `decline` | vendor | new → confirmed → packing → ready. Decline reason is for Karta only |
+| `GET /api/logistics/orders`, `POST /api/logistics/orders/:id/status` | driver / staff | ready → with_logistics → delivered. The only role that sees address + phone |
+| `GET /api/admin/orders` | staff | Every paid order with per-vendor status |
+
+Editing anything but stock on a live listing sends it back to review. Commission (10%) is in `src/modules/marketplace/policy.ts`: confirm it.
+
+## Sending codes
+`NOTIFIER=live` sends SMS via Termii and email via Resend (see `.env.example`). Production refuses to start without it.

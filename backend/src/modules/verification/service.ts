@@ -33,18 +33,22 @@ export async function requestCode(deps: Deps, p: { purpose: Purpose; target: str
   const code = randomDigits(CODE.length)
   const salt = randomToken(8)
 
+  const codeId = newId()
   tx(deps.db, () => {
     run(deps.db, 'UPDATE verification_codes SET consumed_at = ? WHERE purpose = ? AND target = ? AND consumed_at IS NULL', now, p.purpose, p.target)
     run(deps.db, 'INSERT INTO verification_codes (id,purpose,target,user_id,code_hash,salt,expires_at,created_at) VALUES (?,?,?,?,?,?,?,?)',
-      newId(), p.purpose, p.target, p.userId, sha256(`${salt}:${code}`), salt, now + CODE.ttlMs, now)
+      codeId, p.purpose, p.target, p.userId, sha256(`${salt}:${code}`), salt, now + CODE.ttlMs, now)
   })
 
-  await deps.notifier.send({
-    channel: p.purpose === 'verify_phone' ? 'sms' : 'email',
-    to: p.target,
-    template: p.purpose === 'reset_password' ? 'reset_code' : 'verify_code',
-    code,
-  })
+  const channel = p.purpose === 'verify_phone' ? 'sms' : 'email'
+  try {
+    await deps.notifier.send({ channel, to: p.target, template: p.purpose === 'reset_password' ? 'reset_code' : 'verify_code', code })
+  } catch (e) {
+    // Nothing was delivered, so this attempt must not count against the person's cooldown or hourly limit.
+    run(deps.db, 'DELETE FROM verification_codes WHERE id = ?', codeId)
+    deps.log.log('error', 'code delivery failed', { channel, purpose: p.purpose, reason: e instanceof Error ? e.message : 'unknown' })
+    throw new AppError(502, 'delivery_failed', channel === 'sms' ? 'We couldn’t send the text message. Please try again in a moment.' : 'We couldn’t send the email. Please try again in a moment.')
+  }
 
   return { resendAfter: now + CODE.resendMs, devCode: deps.config.exposeDevCodes ? code : undefined }
 }

@@ -8,7 +8,10 @@ export interface Config {
   corsOrigins: string[]
   cookieSecure: boolean
   trustProxy: boolean
-  notifier: 'console' | 'none'
+  /** console = print codes (dev). none = send nothing (tests). live = Termii SMS + Resend email. */
+  notifier: 'console' | 'none' | 'live'
+  /** Only set when notifier is 'live'. Server only. */
+  live?: import('./platform/notifier.ts').LiveNotifierConfig
   exposeDevCodes: boolean
   /** scrypt cost (N). Stored inside every hash, so it can be raised later. */
   scryptN: number
@@ -33,11 +36,18 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 
   const problems: string[] = []
   if (env.PAYSTACK_SECRET_KEY && !/^sk_(test|live)_\w+$/.test(env.PAYSTACK_SECRET_KEY)) problems.push('PAYSTACK_SECRET_KEY must look like sk_test_… or sk_live_… (never the public pk_ key)')
-  if (!['console', 'none'].includes(notifier)) problems.push('NOTIFIER must be "console" or "none"')
+  if (!['console', 'none', 'live'].includes(notifier)) problems.push('NOTIFIER must be "console", "none" or "live"')
+  const liveKeys = ['TERMII_API_KEY', 'TERMII_SENDER_ID', 'RESEND_API_KEY', 'EMAIL_FROM'] as const
+  if (notifier === 'live') {
+    const missing = liveKeys.filter((k) => !env[k])
+    if (missing.length) problems.push(`NOTIFIER=live needs ${missing.join(', ')}`)
+    if (env.TERMII_CHANNEL && !['generic', 'dnd'].includes(env.TERMII_CHANNEL)) problems.push('TERMII_CHANNEL must be "generic" or "dnd"')
+    if (env.EMAIL_FROM && !/^(.+<)?[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>?$/.test(env.EMAIL_FROM)) problems.push('EMAIL_FROM must look like "Karta <hello@yourdomain.com>"')
+  }
   if (origins.some((o) => o === '*' || !/^https?:\/\/[^/]+$/.test(o))) problems.push('CORS_ORIGINS must be exact origins like https://karta.example (no "*", no paths)')
   if (prod) {
     if (secret.length < 32 || secret === DEV_SECRET) problems.push('JWT_SECRET must be set to 32+ random characters in production')
-    if (notifier === 'console') problems.push('NOTIFIER=console would print verification codes to the logs. Wire a real provider (or NOTIFIER=none) in production')
+    if (notifier !== 'live') problems.push('NOTIFIER must be "live" in production: "console" prints codes to the logs and "none" would silently never deliver them')
     if (env.EXPOSE_DEV_CODES === 'true') problems.push('EXPOSE_DEV_CODES must not be true in production')
     if ((env.DATABASE_PATH ?? '') === ':memory:') problems.push('DATABASE_PATH cannot be :memory: in production')
     if (origins.some((o) => o.startsWith('http://'))) problems.push('CORS_ORIGINS must be https:// in production')
@@ -54,6 +64,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     cookieSecure: prod,
     trustProxy: env.TRUST_PROXY === 'true',
     notifier,
+    live: notifier === 'live'
+      ? {
+          termii: { apiKey: env.TERMII_API_KEY!, senderId: env.TERMII_SENDER_ID!, channel: (env.TERMII_CHANNEL as 'generic' | 'dnd' | undefined) ?? 'dnd' },
+          resend: { apiKey: env.RESEND_API_KEY!, from: env.EMAIL_FROM! },
+        }
+      : undefined,
     exposeDevCodes: !prod && env.EXPOSE_DEV_CODES === 'true',
     scryptN: mode === 'test' ? 1024 : 2 ** 15,
     accessTtlSec: 15 * 60,

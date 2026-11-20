@@ -3,6 +3,8 @@ import { adminRoutes } from './modules/admin/routes.ts'
 import { authenticate } from './modules/auth/middleware.ts'
 import { authRoutes } from './modules/auth/routes.ts'
 import { conversationRoutes } from './modules/conversations/routes.ts'
+import { fulfilmentRoutes } from './modules/marketplace/fulfilment.ts'
+import { listingRoutes } from './modules/marketplace/listings.ts'
 import { orderRoutes } from './modules/orders/routes.ts'
 import { paymentRoutes } from './modules/payments/routes.ts'
 import { requestRoutes } from './modules/requests/routes.ts'
@@ -26,6 +28,8 @@ export function createApp(deps: Deps) {
   adminRoutes(router, deps)
   vendorRoutes(router, deps)
   orderRoutes(router, deps)
+  listingRoutes(router, deps)
+  fulfilmentRoutes(router, deps)
   paymentRoutes(router, deps)
   requestRoutes(router, deps)
   conversationRoutes(router, deps)

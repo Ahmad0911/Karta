@@ -3,7 +3,7 @@ import { describe, it } from 'node:test'
 
 import { loadConfig } from '../src/config.ts'
 
-const prod = { NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(48), CORS_ORIGINS: 'https://karta.example', NOTIFIER: 'none', DATABASE_PATH: '/var/data/karta.db' }
+const prod = { NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(48), CORS_ORIGINS: 'https://karta.example', NOTIFIER: 'live', TERMII_API_KEY: 'tk_test', TERMII_SENDER_ID: 'Karta', RESEND_API_KEY: 're_test', EMAIL_FROM: 'Karta <hello@karta.example>', DATABASE_PATH: '/var/data/karta.db' }
 
 describe('configuration safety', () => {
   it('a correct production config loads, with Secure cookies and no dev codes', () => {
@@ -16,7 +16,7 @@ describe('configuration safety', () => {
   for (const [name, change, expected] of [
     ['a missing JWT secret', { JWT_SECRET: '' }, /JWT_SECRET/],
     ['a short JWT secret', { JWT_SECRET: 'short' }, /JWT_SECRET/],
-    ['the console notifier (prints codes to logs)', { NOTIFIER: 'console' }, /NOTIFIER=console/],
+    ['the console notifier (prints codes to logs)', { NOTIFIER: 'console' }, /NOTIFIER must be "live"/],
     ['exposing dev codes', { EXPOSE_DEV_CODES: 'true' }, /EXPOSE_DEV_CODES/],
     ['an in-memory database', { DATABASE_PATH: ':memory:' }, /:memory:/],
     ['http origins', { CORS_ORIGINS: 'http://karta.example' }, /https/],
@@ -44,7 +44,7 @@ describe('configuration safety', () => {
 })
 
 describe('Paystack configuration', () => {
-  const prod = { NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40), NOTIFIER: 'none', CORS_ORIGINS: 'https://karta.example' }
+  const prod = { NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40), NOTIFIER: 'live', TERMII_API_KEY: 'tk_test', TERMII_SENDER_ID: 'Karta', RESEND_API_KEY: 're_test', EMAIL_FROM: 'Karta <hello@karta.example>', CORS_ORIGINS: 'https://karta.example' }
   it('rejects a public key where the secret belongs', () => {
     assert.throws(() => loadConfig({ NODE_ENV: 'test', PAYSTACK_SECRET_KEY: 'pk_test_abc' }), /PAYSTACK_SECRET_KEY/)
   })
@@ -52,5 +52,22 @@ describe('Paystack configuration', () => {
     assert.throws(() => loadConfig({ ...prod, PAYSTACK_SECRET_KEY: 'sk_test_abc123' }), /live key/)
     assert.equal(loadConfig({ ...prod, PAYSTACK_SECRET_KEY: 'sk_live_abc123' }).paystackSecretKey, 'sk_live_abc123')
     assert.equal(loadConfig(prod).paystackSecretKey, '')
+  })
+})
+
+describe('live notifier configuration', () => {
+  const base = { NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(48), CORS_ORIGINS: 'https://karta.example', DATABASE_PATH: '/var/data/karta.db' }
+  it('production refuses "none" (codes would silently never arrive)', () => {
+    assert.throws(() => loadConfig({ ...base, NOTIFIER: 'none' }), /must be "live"/)
+  })
+  it('live needs every provider setting, and names what is missing', () => {
+    assert.throws(() => loadConfig({ ...base, NOTIFIER: 'live', TERMII_API_KEY: 'k' }), (e: Error) => /TERMII_SENDER_ID/.test(e.message) && /RESEND_API_KEY/.test(e.message) && /EMAIL_FROM/.test(e.message))
+  })
+  it('validates the sender address and SMS route', () => {
+    const ok = { ...base, NOTIFIER: 'live', TERMII_API_KEY: 'k', TERMII_SENDER_ID: 'Karta', RESEND_API_KEY: 'r' }
+    assert.throws(() => loadConfig({ ...ok, EMAIL_FROM: 'not-an-email' }), /EMAIL_FROM/)
+    assert.throws(() => loadConfig({ ...ok, EMAIL_FROM: 'hello@karta.example', TERMII_CHANNEL: 'whatsapp' }), /TERMII_CHANNEL/)
+    const c = loadConfig({ ...ok, EMAIL_FROM: 'Karta <hello@karta.example>' })
+    assert.equal(c.live?.termii.channel, 'dnd')
   })
 })

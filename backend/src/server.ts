@@ -9,7 +9,7 @@ import { systemClock } from './platform/clock.ts'
 import { migrate, openDb } from './platform/db.ts'
 import { jsonLogger } from './platform/logger.ts'
 import { createPaystackClient } from './platform/paystack.ts'
-import { consoleNotifier, noopNotifier } from './platform/notifier.ts'
+import { consoleNotifier, createLiveNotifier, noopNotifier } from './platform/notifier.ts'
 import { RateLimiter } from './platform/ratelimit.ts'
 
 const config = loadConfig()
@@ -18,7 +18,7 @@ const applied = migrate(db, join(dirname(fileURLToPath(import.meta.url)), '..', 
 
 const deps: Deps = {
   config, db, clock: systemClock, log: jsonLogger,
-  notifier: config.notifier === 'console' ? consoleNotifier : noopNotifier,
+  notifier: config.notifier === 'live' && config.live ? createLiveNotifier(config.live) : config.notifier === 'console' ? consoleNotifier : noopNotifier,
   limiter: new RateLimiter(systemClock),
   paystack: config.paystackSecretKey ? createPaystackClient(config.paystackSecretKey) : undefined,
 }

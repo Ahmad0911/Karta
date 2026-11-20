@@ -3,6 +3,7 @@ import { iso } from '../../platform/clock.ts'
 import { all, get, run, tx } from '../../platform/db.ts'
 import type { PaystackVerify } from '../../platform/paystack.ts'
 import { audit } from '../audit/audit.ts'
+import { createVendorOrders } from '../marketplace/fulfilment.ts'
 
 export interface PaymentRow {
   reference: string; order_id: string; provider: string; amount_kobo: number; paid_amount_kobo: number | null
@@ -43,6 +44,7 @@ export function settle(deps: Deps, reference: string, v: PaystackVerify): Paymen
           if (r.changes === 0) audit(deps, null, { actor: SYSTEM, action: 'payment.oversold', entityType: 'order', entityId: p.order_id, meta: { listingId: l.listing_id } })
         }
         run(deps.db, "UPDATE custom_requests SET status = 'ordered', updated_at = ? WHERE status = 'accepted' AND listing_id IN (SELECT listing_id FROM order_lines WHERE order_id = ?)", now, p.order_id)
+        createVendorOrders(deps, p.order_id)
         audit(deps, null, { actor: SYSTEM, action: 'payment.paid', entityType: 'order', entityId: p.order_id, meta: { reference, amountKobo: v.amountKobo } })
       } else {
         // Paid twice (e.g. two checkout tabs): staff should refund the extra one.

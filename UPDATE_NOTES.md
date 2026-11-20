@@ -93,3 +93,11 @@ review/recommendation thresholds, starting trust score.
   demo accounts. Development keeps the demo accounts unless `VITE_AUTH_PROVIDER=api`.
 - On startup `bootstrapSession()` checks the session with the server; an expired session signs the person out.
 - Still local-only: "forgot password" screens, staff creating driver accounts, and approving drivers.
+
+## Backend: codes, products, fulfilment
+
+- Real SMS (Termii) and email (Resend) for verification and password-reset codes; production requires `NOTIFIER=live`.
+  A failed send returns a friendly error and does not burn the person's cooldown.
+- Vendor listings with staff review, a public catalogue, and per-vendor order fulfilment (vendor steps, driver steps).
+  Paid orders are split into one fulfilment record per vendor, with Karta's 10% commission recorded.
+- NOT yet connected to the web screens: the vendor/admin/driver/customer pages still read local data.
