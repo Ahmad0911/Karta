@@ -20,6 +20,8 @@ export interface Config {
   bodyLimitBytes: number
   /** Paystack secret key (sk_test_… / sk_live_…). Empty = payments disabled. Server only. */
   paystackSecretKey: string
+  /** Image hosting (Cloudinary). Unset = uploads disabled and any https image URL is accepted (dev/tests). */
+  cloudinary?: { cloudName: string; apiKey: string; apiSecret: string }
 }
 
 const DEV_SECRET = 'dev-only-secret-change-me-dev-only-secret'
@@ -35,6 +37,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const secret = env.JWT_SECRET || (prod ? '' : DEV_SECRET)
 
   const problems: string[] = []
+  const cld = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'].filter((k) => env[k])
+  if (cld.length > 0 && cld.length < 3) problems.push('Cloudinary needs CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET together')
+  if (env.CLOUDINARY_CLOUD_NAME && !/^[a-z0-9_-]+$/i.test(env.CLOUDINARY_CLOUD_NAME)) problems.push('CLOUDINARY_CLOUD_NAME looks wrong')
   if (env.PAYSTACK_SECRET_KEY && !/^sk_(test|live)_\w+$/.test(env.PAYSTACK_SECRET_KEY)) problems.push('PAYSTACK_SECRET_KEY must look like sk_test_… or sk_live_… (never the public pk_ key)')
   if (!['console', 'none', 'live'].includes(notifier)) problems.push('NOTIFIER must be "console", "none" or "live"')
   const liveKeys = ['TERMII_API_KEY', 'TERMII_SENDER_ID', 'RESEND_API_KEY', 'EMAIL_FROM'] as const
@@ -76,5 +81,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     refreshTtlSec: 30 * 24 * 3600,
     bodyLimitBytes: 100 * 1024,
     paystackSecretKey: env.PAYSTACK_SECRET_KEY ?? '',
+    cloudinary: env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET
+      ? { cloudName: env.CLOUDINARY_CLOUD_NAME, apiKey: env.CLOUDINARY_API_KEY, apiSecret: env.CLOUDINARY_API_SECRET }
+      : undefined,
   }
 }

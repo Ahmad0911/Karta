@@ -6,6 +6,7 @@ import { conflict, forbidden, invalid, notFound, unprocessable } from '../../pla
 import { requireRole, staffOnly, type Router } from '../../platform/http.ts'
 import { array, bool, int, object, oneOf, optional, parse, str } from '../../platform/validate.ts'
 import { audit } from '../audit/audit.ts'
+import { isOurImage } from '../uploads/routes.ts'
 import { POLICY } from './policy.ts'
 
 export interface ListingRow {
@@ -36,7 +37,7 @@ export function listingRoutes(router: Router, deps: Deps) {
     id: l.id, sku: l.sku, name: l.name, categoryId: l.category_id, room: l.room, description: l.description, material: l.material, dimensions: l.dimensions,
     colors: JSON.parse(l.colors), priceKobo: l.price_kobo, originalPriceKobo: l.original_price_kobo, stock: l.stock,
     deliveryMinDays: l.delivery_min_days, deliveryMaxDays: l.delivery_max_days, assemblyAvailable: l.assembly_available === 1, images: JSON.parse(l.images),
-    vendor: { id: l.vendor_id, name: businessName(l.vendor_id) }, custom: l.reserved_for !== null,
+    vendor: { id: l.vendor_id, name: businessName(l.vendor_id), trustScore: get<{ t: number }>(db, 'SELECT trust_score AS t FROM vendor_applications WHERE user_id = ?', l.vendor_id)?.t ?? 0 }, custom: l.reserved_for !== null,
   })
   const ownerDto = (l: ListingRow) => ({ ...publicDto(l), status: state(l), moderationNote: l.moderation_note, createdAt: l.created_at, updatedAt: l.updated_at })
 
@@ -74,6 +75,8 @@ export function listingRoutes(router: Router, deps: Deps) {
   router.get('/api/vendor/listings/:id', requireRole('vendor'), (ctx) => ownerDto(mine(ctx.params.id as string, ctx.user!.id)))
 
   router.put('/api/vendor/listings/:id', requireRole('vendor'), (ctx) => {
+    const bad = (b0: unknown) => Array.isArray((b0 as { images?: string[] })?.images) && (b0 as { images: string[] }).images.some((u) => !isOurImage(deps, u))
+    if (bad(ctx.body)) throw unprocessable('images', 'Please upload photos with the Karta uploader.')
     const shape = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, optional(v as never)]))
     const b = parse(shape as never, ctx.body) as Record<string, unknown>
     return tx(db, () => {
@@ -158,7 +161,8 @@ export function listingRoutes(router: Router, deps: Deps) {
     const page = Math.max(1, Number(ctx.query.get('page') ?? 1) || 1)
     const rows = all<ListingRow>(db, `SELECT l.* FROM listings l WHERE ${LIVE} AND l.reserved_for IS NULL ORDER BY l.updated_at DESC LIMIT 1000`)
       .filter((l) => (!category || l.category_id === category) && (!room || l.room === room) && (!q || `${l.name} ${l.description} ${l.material}`.toLowerCase().includes(q)))
-    return { total: rows.length, page, listings: rows.slice((page - 1) * 24, page * 24).map(publicDto) }
+    const size = Math.min(100, Math.max(1, Number(ctx.query.get('pageSize') ?? 24) || 24))
+    return { total: rows.length, page, pageSize: size, listings: rows.slice((page - 1) * size, page * size).map(publicDto) }
   })
 
   /** A made-for-you piece is visible to its customer only; everyone else gets "not found". */

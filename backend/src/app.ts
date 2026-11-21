@@ -8,6 +8,7 @@ import { listingRoutes } from './modules/marketplace/listings.ts'
 import { orderRoutes } from './modules/orders/routes.ts'
 import { paymentRoutes } from './modules/payments/routes.ts'
 import { requestRoutes } from './modules/requests/routes.ts'
+import { uploadRoutes } from './modules/uploads/routes.ts'
 import { vendorRoutes } from './modules/vendors/routes.ts'
 import { verificationRoutes } from './modules/verification/routes.ts'
 import { all } from './platform/db.ts'
@@ -30,6 +31,7 @@ export function createApp(deps: Deps) {
   orderRoutes(router, deps)
   listingRoutes(router, deps)
   fulfilmentRoutes(router, deps)
+  uploadRoutes(router, deps)
   paymentRoutes(router, deps)
   requestRoutes(router, deps)
   conversationRoutes(router, deps)

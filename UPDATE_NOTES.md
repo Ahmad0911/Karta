@@ -101,3 +101,12 @@ review/recommendation thresholds, starting trust score.
 - Vendor listings with staff review, a public catalogue, and per-vendor order fulfilment (vendor steps, driver steps).
   Paid orders are split into one fulfilment record per vendor, with Karta's 10% commission recorded.
 - NOT yet connected to the web screens: the vendor/admin/driver/customer pages still read local data.
+
+## Photos and the live catalogue
+
+- Backend: `POST /api/uploads/sign` gives vendors/customers a short Cloudinary signature; the browser uploads straight
+  to Cloudinary and sends only the resulting link. Listings accept ONLY our own Cloudinary photos when it is configured.
+  Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` on the server.
+- Web (production builds): `useCatalog()` now reads the real catalogue from the API. Demo seed products are no longer
+  mixed in (they could never be bought). Made-for-you pieces load by id for their own customer only.
+- Still local: vendor screens (profile, listings, orders), admin listing review and admin orders. Next step.

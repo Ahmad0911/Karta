@@ -6,6 +6,8 @@ import { useVendorStore } from '@/modules/vendors/store/vendor.store'
 import { summarize } from '@/modules/reviews/lib'
 import { useReviewsStore } from '@/modules/reviews/reviews.store'
 import { useAuthStore } from '@/store/auth.store'
+import { AUTH_API } from '@/store/auth.api'
+import { useRemoteCatalog } from './remote'
 import { vendorIdFor } from './vendorId'
 import type { VendorListing, VendorProfile } from '@/modules/vendors/types'
 
@@ -71,6 +73,15 @@ export interface Catalog {
 }
 
 export function useCatalog(): Catalog {
+  // Production builds read the real catalogue from the API (a build is either one mode or the other).
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  if (AUTH_API) return useRemote()
+  return useLocalCatalog()
+}
+
+function useRemote(): Catalog { return useRemoteCatalog() }
+
+function useLocalCatalog(): Catalog {
   const byEmail = useVendorStore((s) => s.byEmail)
   const reviews = useReviewsStore((s) => s.reviews)
   const viewer = useAuthStore((s) => s.user?.email.trim().toLowerCase())
