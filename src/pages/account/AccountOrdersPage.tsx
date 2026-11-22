@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { PackageSearch } from 'lucide-react'
 
@@ -21,6 +22,8 @@ export default function AccountOrdersPage() {
 
   const user = useAuthStore((s) => s.user)!
   const all = useOrdersStore((s) => s.orders)
+  const syncServerOrders = useOrdersStore((s) => s.syncServerOrders)
+  useEffect(() => { void syncServerOrders() }, [syncServerOrders])
   const orders = all.filter((o) => o.customerEmail === user.email.trim().toLowerCase())
 
   return (

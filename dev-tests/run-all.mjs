@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 
 const suites = [
   ['test.mjs', false], ['test2.mjs', false], ['test3.mjs', false], ['test4.mjs', false], ['test5.mjs', false],
-  ['test6.mjs', false], ['test7.mjs', true], ['test8.mjs', false], ['test9.mjs', true], ['test10.mjs', false], ['test11.mjs', true], ['test12.mjs', false, { KARTA_API: 'http://api.test/api' }], ['test13.mjs', true], ['test14.mjs', false, { KARTA_API: 'http://api.test/api' }], ['test15.mjs', false, { KARTA_API: 'http://api.test/api' }],
+  ['test6.mjs', false], ['test7.mjs', true], ['test8.mjs', false], ['test9.mjs', true], ['test10.mjs', false], ['test11.mjs', true], ['test12.mjs', false, { KARTA_API: 'http://api.test/api' }], ['test13.mjs', true], ['test14.mjs', false, { KARTA_API: 'http://api.test/api' }], ['test15.mjs', false, { KARTA_API: 'http://api.test/api' }], ['test16.mjs', false, { KARTA_API: 'http://api.test/api' }],
 ]
 let failed = 0
 for (const [file, dev, extra] of suites) {

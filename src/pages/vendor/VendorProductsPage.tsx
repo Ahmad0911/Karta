@@ -70,8 +70,14 @@ export default function VendorProductsPage() {
     return !q || l.name.toLowerCase().includes(q) || l.sku.toLowerCase().includes(q)
   })
 
-  const act = (result: { ok: boolean; error?: string }, success: string) =>
-    result.ok ? toast.success(success) : toast.error(result.error ?? 'Something went wrong.')
+  const act = async (
+    pending: { ok: boolean; error?: string } | Promise<{ ok: boolean; error?: string }>,
+    success: string,
+  ) => {
+    const result = await pending
+    if (result.ok) toast.success(success)
+    else toast.error(result.error ?? 'Something went wrong.')
+  }
 
   return (
     <div className="space-y-8">
@@ -214,7 +220,7 @@ export default function VendorProductsPage() {
                               aria-label={`Delete ${l.name}`}
                               onClick={() => {
                                 if (window.confirm(`Delete “${l.name}”? This can’t be undone.`)) {
-                                  remove(email, l.id)
+                                  void remove(email, l.id)
                                   toast.success('Product deleted')
                                 }
                               }}

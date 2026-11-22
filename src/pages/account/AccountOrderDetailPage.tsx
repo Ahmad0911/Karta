@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { AUTH_API } from '@/store/auth.api'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { ArrowLeft, Check } from 'lucide-react'
 
@@ -23,8 +24,18 @@ export default function AccountOrderDetailPage() {
   const reviews = useReviewsStore((s) => s.reviews)
   const allReturns = useReturnsStore((s) => s.returns)
   const [open, setOpen] = useState<string | null>(null)
+  const syncServerOrders = useOrdersStore((s) => s.syncServerOrders)
+  const [synced, setSynced] = useState(!AUTH_API)
+  // Production: show the server's latest progress, and refresh while the order is on its way.
+  useEffect(() => {
+    void syncServerOrders().finally(() => setSynced(true))
+    const t = setInterval(() => { if (document.visibilityState === 'visible') void syncServerOrders() }, 30_000)
+    return () => clearInterval(t)
+  }, [syncServerOrders])
 
   useDocumentTitle(order ? `Order ${order.number}` : 'Order')
+
+  if (!order && !synced) return <p className="py-24 text-center text-sm text-[#151b1c]/55">Loading your order…</p>
 
   // Someone else's order looks exactly like a missing one.
   if (!order || order.customerEmail !== user.email.trim().toLowerCase()) {
@@ -61,6 +72,20 @@ export default function AccountOrderDetailPage() {
           <Notice tone="success" title="Payment received. Thank you.">
             Your order has been sent to the vendor. We’ll hold your payment safely until it’s delivered.
           </Notice>
+        )}
+
+        {order.fulfilment && order.fulfilment.length > 0 && (
+          <Card>
+            <CardHeader title="Delivery progress" />
+            <ul className="divide-y divide-[#151b1c]/[0.07]">
+              {order.fulfilment.map((f) => (
+                <li key={f.number} className="flex items-center justify-between gap-4 px-5 py-4 text-sm sm:px-6">
+                  <span className="font-medium">{f.vendorName}</span>
+                  <span className="text-[#151b1c]/60">{{ new: 'Order received', confirmed: 'Confirmed by the vendor', packing: 'Being prepared', ready_for_pickup: 'Ready for collection', with_logistics: 'On its way to you', delivered: 'Delivered', cancelled: 'Cancelled: Karta will refund you' }[f.status] ?? f.status}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
         )}
 
         <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">

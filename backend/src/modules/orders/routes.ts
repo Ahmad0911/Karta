@@ -17,12 +17,12 @@ interface ListingRow { id: string; vendor_id: string; name: string; price_kobo: 
 export function orderRoutes(router: Router, deps: Deps) {
   const { db, clock } = deps
 
-  const linesOf = (orderId: string) => all<{ listing_id: string; name: string; unit_price_kobo: number; qty: number }>(db, 'SELECT listing_id,name,unit_price_kobo,qty FROM order_lines WHERE order_id = ?', orderId)
+  const linesOf = (orderId: string) => all<{ listing_id: string; name: string; unit_price_kobo: number; qty: number; vendor_id: string; business_name: string | null }>(db, 'SELECT l.listing_id,l.name,l.unit_price_kobo,l.qty,l.vendor_id,u.business_name FROM order_lines l JOIN users u ON u.id = l.vendor_id WHERE l.order_id = ?', orderId)
   const dto = (o: OrderRow) => ({
     id: o.id, number: o.number, status: o.status,
     ship: { state: o.ship_state, city: o.ship_city, address: o.ship_address },
     subtotalKobo: o.subtotal_kobo, deliveryKobo: o.delivery_kobo, totalKobo: o.total_kobo, refundedKobo: o.refunded_kobo,
-    lines: linesOf(o.id).map((l) => ({ listingId: l.listing_id, name: l.name, unitPriceKobo: l.unit_price_kobo, qty: l.qty })),
+    lines: linesOf(o.id).map((l) => ({ listingId: l.listing_id, name: l.name, unitPriceKobo: l.unit_price_kobo, qty: l.qty, vendorId: l.vendor_id, vendorName: l.business_name ?? 'Karta vendor' })),
     fulfilment: all<{ number: string; status: string; updated_at: string; business_name: string | null }>(db,
       'SELECT vo.number, vo.status, vo.updated_at, u.business_name FROM vendor_orders vo JOIN users u ON u.id = vo.vendor_id WHERE vo.order_id = ? ORDER BY vo.number', o.id)
       .map((f) => ({ number: f.number, status: f.status, updatedAt: f.updated_at, vendorName: f.business_name ?? 'Vendor' })),

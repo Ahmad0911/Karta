@@ -27,8 +27,8 @@ export default function AdminListingsPage() {
       .map((l) => ({ vendor: v, listing: l })),
   )
 
-  const act = (email: string, id: string, decision: 'approve' | 'reject') => {
-    const r = moderate(email, id, decision, note)
+  const act = async (email: string, id: string, decision: 'approve' | 'reject') => {
+    const r = await moderate(email, id, decision, note)
     if (!r.ok) {
       setError(r.error)
       return

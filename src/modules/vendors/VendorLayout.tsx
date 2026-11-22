@@ -1,3 +1,4 @@
+import { AUTH_API } from '@/store/auth.api'
 import { useEffect, useMemo } from 'react'
 import {
   BarChart3,
@@ -31,9 +32,21 @@ export default function VendorLayout() {
   const allReturns = useReturnsStore((s) => s.returns)
   const allTickets = useSupportStore((s) => s.tickets)
 
+  const syncWorkspace = useVendorStore((s) => s.syncWorkspace)
+
   useEffect(() => {
     ensureWorkspace(user)
   }, [ensureWorkspace, user])
+
+  // Production: keep the profile, products and orders in step with the server (new orders arrive while the tab is open).
+  useEffect(() => {
+    if (!AUTH_API) return
+    void syncWorkspace()
+    const refresh = () => { if (document.visibilityState === 'visible') void syncWorkspace() }
+    const timer = setInterval(refresh, 30_000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh) }
+  }, [syncWorkspace])
 
   const { profile, orders, listings } = workspace
 

@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
+import { AUTH_API } from '@/store/auth.api'
+import { useAdminVendors } from '@/modules/vendors/store/adminRemote'
 import { AlertTriangle, ArrowLeft, FileText, Info } from 'lucide-react'
 
 import {
@@ -51,7 +53,19 @@ export default function AdminVendorDetailPage() {
   const [noteError, setNoteError] = useState('')
   const [pending, setPending] = useState<ApplicationDecision | null>(null)
 
-  if (!record) return <Navigate to="/admin/vendors" replace />
+  const loadState = useAdminVendors((s) => s.status)
+  const loadHistory = useAdminVendors((s) => s.loadHistory)
+  const haveRecord = Boolean(record)
+  // Production: fetch the decision trail for this vendor.
+  useEffect(() => {
+    if (AUTH_API && haveRecord) void loadHistory(email)
+  }, [haveRecord, email, loadHistory])
+
+  if (!record) {
+    // Production: the list is still loading, so don't bounce the reviewer away.
+    if (AUTH_API && (loadState === 'idle' || loadState === 'loading')) return <p className="py-12 text-center text-sm text-[#151b1c]/55">Loading…</p>
+    return <Navigate to="/admin/vendors" replace />
+  }
 
   const { profile, listings } = record.workspace
   const b = profile.business
@@ -64,8 +78,8 @@ export default function AdminVendorDetailPage() {
   const signals = signalsFor(record, all)
   const warnings = signals.filter((s) => s.level === 'warning')
 
-  const run = (decision: ApplicationDecision) => {
-    const result = decide(email, decision, note, decision === 'approve' ? Number(trust) : undefined)
+  const run = async (decision: ApplicationDecision) => {
+    const result = await decide(email, decision, note, decision === 'approve' ? Number(trust) : undefined)
     if (!result.ok) {
       setNoteError(result.error)
       toast.error(result.error)

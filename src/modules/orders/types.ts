@@ -54,6 +54,9 @@ export interface CustomerOrder {
   courier: { id: string; name: string }
   deliveredAt?: string
 
+  /** Production: progress of each vendor's part of the order, as the server tracks it. */
+  fulfilment?: { number: string; vendorName: string; status: string; updatedAt: string }[]
+
   /** Total returned to the customer so far (never more than `total`). */
   refundedTotal?: number
   deliveryRefunded?: boolean

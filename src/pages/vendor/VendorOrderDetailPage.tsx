@@ -1,3 +1,4 @@
+import { AUTH_API } from '@/store/auth.api'
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Check, MapPin, Truck } from 'lucide-react'
@@ -34,6 +35,7 @@ import { formatDate } from '@/lib/date'
 export default function VendorOrderDetailPage() {
   const { id } = useParams()
   const { email, workspace } = useVendor()
+  const serverLoaded = useVendorStore((s) => s.loaded)
   const advance = useVendorStore((s) => s.advanceOrder)
   const cancel = useVendorStore((s) => s.cancelOrder)
 
@@ -45,6 +47,7 @@ export default function VendorOrderDetailPage() {
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState('')
 
+  if (AUTH_API && !serverLoaded) return <p className="py-12 text-center text-sm text-[#151b1c]/55">Loading…</p>
   if (!order) return <Navigate to="/vendor/orders" replace />
 
   const meta = ORDER_STATUS_META[order.status]
@@ -52,14 +55,14 @@ export default function VendorOrderDetailPage() {
   const reached = new Set(order.events.map((e) => e.status))
   const release = releaseDate(order)
 
-  const doAdvance = () => {
-    const r = advance(email, order.id)
+  const doAdvance = async () => {
+    const r = await advance(email, order.id)
     if (r.ok) toast.success(`Marked as ${ORDER_STATUS_META[next!.to].label.toLowerCase()}`)
     else toast.error(r.error)
   }
 
-  const doCancel = () => {
-    const r = cancel(email, order.id, reason)
+  const doCancel = async () => {
+    const r = await cancel(email, order.id, reason)
     if (!r.ok) {
       setReasonError(r.error)
       return

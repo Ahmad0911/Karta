@@ -165,6 +165,15 @@ export function listingRoutes(router: Router, deps: Deps) {
     return { total: rows.length, page, pageSize: size, listings: rows.slice((page - 1) * size, page * size).map(publicDto) }
   })
 
+  /** Verified vendors only. No email, phone or bank details: just what a shopper needs. */
+  router.get('/api/vendors', () => ({
+    vendors: all<{ user_id: string; trust_score: number; business: string }>(db, "SELECT user_id, trust_score, business FROM vendor_applications WHERE status = 'approved' ORDER BY trust_score DESC LIMIT 500")
+      .map((a) => {
+        const b = JSON.parse(a.business) as { name: string; description: string; city: string; state: string }
+        return { id: a.user_id, name: b.name, trustScore: a.trust_score, location: [b.city, b.state].filter(Boolean).join(', '), about: b.description }
+      }),
+  }))
+
   /** A made-for-you piece is visible to its customer only; everyone else gets "not found". */
   router.get('/api/catalog/:id', (ctx) => {
     const l = get<ListingRow>(db, `SELECT l.* FROM listings l WHERE l.id = ? AND ${LIVE}`, ctx.params.id as string)

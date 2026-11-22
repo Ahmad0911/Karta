@@ -84,7 +84,7 @@ export default function VendorOnboardingPage() {
     goTo(step + 1)
   }
 
-  const submit = () => {
+  const submit = async () => {
     // Re-validate every step so nothing slips through.
     for (let i = 0; i < ONBOARDING_STEPS.length; i++) {
       const found = validateStep(profile, i)
@@ -97,7 +97,7 @@ export default function VendorOnboardingPage() {
       }
     }
 
-    const result = submitApplication(email)
+    const result = await submitApplication(email)
     if (!result.ok) {
       toast.error(result.error)
       return

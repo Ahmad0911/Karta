@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import { safeStorage } from '@/lib/safeStorage'
 import { samePhone } from '@/lib/phone'
 import { useAuthStore } from '@/store/auth.store'
+import { AUTH_API } from '@/store/auth.api'
 import type { User } from '@/types'
 
 import { VENDOR_POLICY } from '../config'
@@ -16,6 +17,8 @@ import {
 } from '../lib/onboarding'
 import { VENDOR_NEXT_ACTION, canVendorCancel } from '../lib/orders'
 import { buildDemoData } from './demo'
+import * as remote from './remote'
+import { decideApplicationRemote, moderateListingRemote } from './adminRemote'
 import type {
   ListingStatus,
   VendorListing,
@@ -40,6 +43,9 @@ export type ActionResult<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string }
 
+/** Production builds talk to the server (a Promise); the demo store answers at once. `await` works for both. */
+export type MaybeAsync<T> = T | Promise<T>
+
 export type ApplicationDecision =
   | 'approve'
   | 'request_changes'
@@ -49,26 +55,30 @@ export type ApplicationDecision =
 
 interface VendorState {
   byEmail: Record<string, VendorWorkspace>
+  /** Production: true once the server's copy of this vendor's workspace has been loaded this session. */
+  loaded: boolean
 
   /* Workspace */
   ensureWorkspace: (user: User) => void
+  /** Production: load this vendor's profile, listings and orders from the server. */
+  syncWorkspace: () => Promise<void>
 
   /* Onboarding */
   updateProfile: (email: string, updater: (p: VendorProfile) => VendorProfile) => void
-  submitApplication: (email: string) => ActionResult
+  submitApplication: (email: string) => MaybeAsync<ActionResult>
 
   /* Listings */
   saveListing: (
     email: string,
     input: { id?: string; draft: ListingDraft; submitForReview: boolean },
-  ) => ActionResult<VendorListing>
-  setListingStatus: (email: string, id: string, status: ListingStatus) => ActionResult
-  setListingStock: (email: string, id: string, stock: number) => ActionResult
-  deleteListing: (email: string, id: string) => void
+  ) => MaybeAsync<ActionResult<VendorListing>>
+  setListingStatus: (email: string, id: string, status: ListingStatus) => MaybeAsync<ActionResult>
+  setListingStock: (email: string, id: string, stock: number) => MaybeAsync<ActionResult>
+  deleteListing: (email: string, id: string) => MaybeAsync<ActionResult | void>
 
   /* Orders */
-  advanceOrder: (email: string, orderId: string) => ActionResult
-  cancelOrder: (email: string, orderId: string, reason: string) => ActionResult
+  advanceOrder: (email: string, orderId: string) => MaybeAsync<ActionResult>
+  cancelOrder: (email: string, orderId: string, reason: string) => MaybeAsync<ActionResult>
 
   /* Platform → vendor (done by the server in production) */
   addCustomListing: (vendorEmail: string, listing: VendorListing) => void
@@ -84,13 +94,13 @@ interface VendorState {
     decision: ApplicationDecision,
     note: string,
     trustScore?: number,
-  ) => ActionResult
+  ) => MaybeAsync<ActionResult>
   moderateListing: (
     vendorEmail: string,
     listingId: string,
     decision: 'approve' | 'reject',
     note: string,
-  ) => ActionResult
+  ) => MaybeAsync<ActionResult>
 
   /* DEV-only mock controls */
   devLoadDemoData: (email: string) => void
@@ -152,10 +162,25 @@ export const useVendorStore = create<VendorState>()(
 
       const read = (email: string) => get().byEmail[key(email)]
 
+      /** Production: put what the server says into the workspace. */
+      const put = (email: string, fn: (w: VendorWorkspace | undefined) => VendorWorkspace) =>
+        set((state) => ({ byEmail: { ...state.byEmail, [key(email)]: fn(state.byEmail[key(email)]) } }))
+      const syncNow = async () => {
+        const user = useAuthStore.getState().user
+        if (!AUTH_API || !user || user.role !== 'vendor') return
+        try { await remote.loadWorkspace(user, read(user.email), put); set({ loaded: true }) } catch { /* keep what we have; the next action retries */ }
+      }
+      /** Run a server action, then show what the server actually holds. */
+      const viaServer = async <T,>(run: () => Promise<T>): Promise<T> => { const r = await run(); await syncNow(); return r }
+      let profileTimer: ReturnType<typeof setTimeout> | undefined
+
       return {
         byEmail: {},
+        loaded: false,
 
         /* ------------------------------ Workspace ------------------------------ */
+
+        syncWorkspace: syncNow,
 
         ensureWorkspace: (user) => {
           const k = key(user.email)
@@ -176,10 +201,26 @@ export const useVendorStore = create<VendorState>()(
 
         /* ------------------------------ Onboarding ----------------------------- */
 
-        updateProfile: (email, updater) =>
-          mutate(email, (w) => ({ ...w, profile: updater(w.profile) })),
+        updateProfile: (email, updater) => {
+          mutate(email, (w) => ({ ...w, profile: updater(w.profile) }))
+          if (AUTH_API) {
+            // Save to the server shortly after the vendor stops typing. The server has the final say at submit.
+            clearTimeout(profileTimer)
+            profileTimer = setTimeout(() => { const p = read(email)?.profile; if (p && (p.status === 'draft' || p.status === 'changes_requested')) void remote.pushProfile(p) }, 800)
+          }
+        },
 
         submitApplication: (email) => {
+          if (AUTH_API) {
+            return (async () => {
+              const p = read(email)?.profile
+              if (!p) return { ok: false as const, error: 'Account not found.' }
+              clearTimeout(profileTimer)
+              const pushed = await remote.pushProfile(p)
+              if (!pushed.ok) return { ok: false as const, error: pushed.error }
+              return viaServer(() => remote.submitApplicationRemote())
+            })()
+          }
           const w = read(email)
           if (!w) return { ok: false, error: 'Account not found.' }
 
@@ -223,6 +264,11 @@ export const useVendorStore = create<VendorState>()(
         /* ------------------------------- Listings ------------------------------ */
 
         saveListing: (email, { id, draft, submitForReview }) => {
+          if (AUTH_API) {
+            const errors = validateListing(draft, submitForReview ? 'submit' : 'draft')
+            if (Object.keys(errors).length > 0) return { ok: false, error: 'Please fix the highlighted fields.' }
+            return viaServer(() => remote.saveListingRemote(id, draft, submitForReview))
+          }
           const w = read(email)
           if (!w) return { ok: false, error: 'Account not found.' }
 
@@ -289,6 +335,11 @@ export const useVendorStore = create<VendorState>()(
         },
 
         setListingStatus: (email, id, status) => {
+          if (AUTH_API) {
+            const current = read(email)?.listings.find((l) => l.id === id)?.status
+            if (!current) return { ok: false, error: 'Listing not found.' }
+            return viaServer(() => remote.setListingStatusRemote(id, status, current))
+          }
           const w = read(email)
           const listing = w?.listings.find((l) => l.id === id)
           if (!w || !listing) return { ok: false, error: 'Listing not found.' }
@@ -313,6 +364,10 @@ export const useVendorStore = create<VendorState>()(
         },
 
         setListingStock: (email, id, stock) => {
+          if (AUTH_API) {
+            if (!Number.isInteger(stock) || stock < 0 || stock > 100000) return { ok: false, error: 'Stock must be a whole number from 0 upward.' }
+            return viaServer(() => remote.setListingStockRemote(id, stock))
+          }
           if (!Number.isInteger(stock) || stock < 0 || stock > 100000) {
             return { ok: false, error: 'Stock must be a whole number from 0 upward.' }
           }
@@ -327,18 +382,21 @@ export const useVendorStore = create<VendorState>()(
           return { ok: true }
         },
 
-        deleteListing: (email, id) =>
+        deleteListing: (email, id) => {
+          if (AUTH_API) return viaServer(() => remote.deleteListingRemote(id))
           mutate(email, (x) => ({
             ...x,
             listings: x.listings.filter(
               // Only drafts and paused listings can be removed.
               (l) => l.id !== id || (l.status !== 'draft' && l.status !== 'paused'),
             ),
-          })),
+          }))
+        },
 
         /* -------------------------------- Orders ------------------------------- */
 
         advanceOrder: (email, orderId) => {
+          if (AUTH_API) return viaServer(() => remote.advanceOrderRemote(orderId))
           const order = read(email)?.orders.find((o) => o.id === orderId)
           if (!order) return { ok: false, error: 'Order not found.' }
 
@@ -362,6 +420,7 @@ export const useVendorStore = create<VendorState>()(
         },
 
         cancelOrder: (email, orderId, reason) => {
+          if (AUTH_API) return viaServer(() => remote.cancelOrderRemote(orderId, reason))
           const order = read(email)?.orders.find((o) => o.id === orderId)
           if (!order) return { ok: false, error: 'Order not found.' }
 
@@ -466,6 +525,7 @@ export const useVendorStore = create<VendorState>()(
         /* --------------------------------- Admin -------------------------------- */
 
         decideApplication: (vendorEmail, decision, note, trustScore) => {
+          if (AUTH_API) return decideApplicationRemote(vendorEmail, decision, note, trustScore)
           const admin = currentAdmin()
           if (!admin) return { ok: false, error: 'Only Karta staff can review applications.' }
 
@@ -513,6 +573,7 @@ export const useVendorStore = create<VendorState>()(
         },
 
         moderateListing: (vendorEmail, listingId, decision, note) => {
+          if (AUTH_API) return moderateListingRemote(listingId, decision, note)
           if (!currentAdmin()) return { ok: false, error: 'Only Karta staff can moderate listings.' }
 
           const w = read(vendorEmail)
@@ -581,6 +642,8 @@ export const useVendorStore = create<VendorState>()(
       name: 'karta-vendor',
       version: 1,
       storage: createJSONStorage(() => safeStorage),
+      // Production keeps nothing about vendors in the browser: the server is the only copy.
+      partialize: (state) => (AUTH_API ? ({ byEmail: {} } as unknown as typeof state) : state),
     },
   ),
 )

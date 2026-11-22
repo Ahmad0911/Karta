@@ -143,7 +143,7 @@ export function vendorRoutes(router: Router, deps: Deps) {
     return {
       applications: rows.map((r) => {
         const b = JSON.parse(r.business) as Business
-        return { id: r.id, email: r.email, status: r.status, businessName: b.name, city: b.city, type: b.type, submittedAt: r.submitted_at }
+        return { id: r.id, email: r.email, status: r.status, businessName: b.name, city: b.city, type: b.type, submittedAt: r.submitted_at, application: dto(r) }
       }),
     }
   })

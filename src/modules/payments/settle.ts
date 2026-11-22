@@ -30,6 +30,7 @@ export async function settlePayment(
         reference,
         paidAmountKobo: v.paidAmountKobo,
       })
+      void orders.syncServerOrders()
       return r.ok ? { outcome: 'paid', order: r.data } : { outcome: 'error', message: r.error }
     }
 

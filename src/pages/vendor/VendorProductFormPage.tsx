@@ -1,3 +1,5 @@
+import { AUTH_API } from '@/store/auth.api'
+import { uploadPhoto } from '@/lib/upload'
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ImagePlus, Star, X } from 'lucide-react'
@@ -76,6 +78,7 @@ export default function VendorProductFormPage() {
 
   const navigate = useNavigate()
   const { email, workspace } = useVendor()
+  const serverLoaded = useVendorStore((s) => s.loaded)
   const saveListing = useVendorStore((s) => s.saveListing)
 
   const existing = isNew ? undefined : workspace.listings.find((l) => l.id === id)
@@ -102,6 +105,7 @@ export default function VendorProductFormPage() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [dirty])
 
+  if (AUTH_API && !serverLoaded) return <p className="py-12 text-center text-sm text-[#151b1c]/55">Loading…</p>
   if (!isNew && !existing) return <Navigate to="/vendor/products" replace />
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -138,9 +142,10 @@ export default function VendorProductFormPage() {
     const added: string[] = []
 
     for (const file of Array.from(files).slice(0, room)) {
-      const result = await prepareImage(file)
-      if (result.ok) added.push(result.dataUrl)
-      else toast.error(result.error)
+      // Production: upload to image hosting and keep the link. Demo: keep a shrunken copy in the browser.
+      const result = AUTH_API ? await uploadPhoto(file) : await prepareImage(file)
+      if (!result.ok) toast.error(result.error)
+      else added.push('url' in result ? result.url : result.dataUrl)
     }
 
     if (files.length > room) {
@@ -159,7 +164,7 @@ export default function VendorProductFormPage() {
 
   /* -------------------------------- save ---------------------------------- */
 
-  const save = (submitForReview: boolean) => {
+  const save = async (submitForReview: boolean) => {
     const raw = toDraft(form)
 
     // Drafts may be incomplete, but must never store NaN.
@@ -185,7 +190,7 @@ export default function VendorProductFormPage() {
       return
     }
 
-    const result = saveListing(email, { id: existing?.id, draft, submitForReview })
+    const result = await saveListing(email, { id: existing?.id, draft, submitForReview })
 
     if (!result.ok) {
       toast.error(result.error)

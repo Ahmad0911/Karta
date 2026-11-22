@@ -5,7 +5,9 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import { DEFAULT_COURIER, deliveryFeeFor } from '@/config/checkout'
 import { SITE } from '@/config/site'
 import { safeStorage } from '@/lib/safeStorage'
+import { apiGet } from '@/lib/api'
 import { useAuthStore } from '@/store/auth.store'
+import { AUTH_API } from '@/store/auth.api'
 import type { Product } from '@/types'
 import { toKobo, type ProviderId } from '@/modules/payments'
 import { commissionFor } from '@/modules/vendors/lib/finance'
@@ -56,6 +58,9 @@ interface OrdersState {
   recordRefund: (orderId: string, amount: number, includesDelivery: boolean) => Result
 
   devMarkDelivered: (orderId: string) => void
+
+  /** Production: replace the paid orders with the server's copy (progress, refunds), keeping any payment in progress. */
+  syncServerOrders: () => Promise<void>
 }
 
 const now = () => new Date().toISOString()
@@ -70,6 +75,38 @@ export function validateAddress(a: DeliveryAddress): Record<string, string> {
   if (a.city.trim().length < 2) e.city = 'Enter the city or town.'
   if (!a.state) e.state = 'Choose the state.'
   return e
+}
+
+interface ApiOrder {
+  id: string; number: string; status: 'awaiting_payment' | 'paid' | 'cancelled' | 'refunded'
+  ship: { state: string; city: string; address: string }
+  subtotalKobo: number; deliveryKobo: number; totalKobo: number; refundedKobo: number
+  lines: { listingId: string; name: string; unitPriceKobo: number; qty: number; vendorId: string; vendorName: string }[]
+  fulfilment: { number: string; status: string; updatedAt: string; vendorName: string }[]
+  createdAt: string; paidAt: string | null
+}
+
+const fromServer = (o: ApiOrder, user: { email: string; name: string; phone?: string }): CustomerOrder => {
+  const delivered = o.fulfilment.length > 0 && o.fulfilment.every((f) => f.status === 'delivered' || f.status === 'cancelled') && o.fulfilment.some((f) => f.status === 'delivered')
+  return {
+    id: o.id,
+    number: o.number,
+    customerEmail: user.email.toLowerCase(),
+    customerName: user.name,
+    placedAt: o.paidAt ?? o.createdAt,
+    lines: o.lines.map((l) => ({ productId: l.listingId, name: l.name, qty: l.qty, unitPrice: Math.round(l.unitPriceKobo / 100), assembly: false, vendorId: l.vendorId, vendorName: l.vendorName })),
+    address: { fullName: user.name, phone: user.phone ?? '', street: o.ship.address, city: o.ship.city, state: o.ship.state },
+    subtotal: Math.round(o.subtotalKobo / 100),
+    assemblyFee: 0,
+    deliveryFee: Math.round(o.deliveryKobo / 100),
+    total: Math.round(o.totalKobo / 100),
+    status: o.status === 'cancelled' || o.status === 'refunded' ? 'cancelled' : delivered ? 'delivered' : 'paid',
+    payment: { provider: 'paystack' as ProviderId, status: 'paid', paidAt: o.paidAt ?? undefined },
+    courier: { ...DEFAULT_COURIER },
+    deliveredAt: delivered ? o.fulfilment.map((f) => f.updatedAt).sort().reverse()[0] : undefined,
+    fulfilment: o.fulfilment.map((f) => ({ number: f.number, vendorName: f.vendorName, status: f.status, updatedAt: f.updatedAt })),
+    refundedTotal: o.refundedKobo ? Math.round(o.refundedKobo / 100) : undefined,
+  }
 }
 
 export const useOrdersStore = create<OrdersState>()(
@@ -241,6 +278,17 @@ export const useOrdersStore = create<OrdersState>()(
         return { ok: true }
       },
 
+      syncServerOrders: async () => {
+        const user = useAuthStore.getState().user
+        if (!AUTH_API || !user) return
+        try {
+          const r = await apiGet<{ orders: ApiOrder[] }>('/orders')
+          // Orders still waiting for payment live only in this browser's checkout; everything else is the server's.
+          const fromApi = r.orders.filter((o) => o.status !== 'awaiting_payment').map((o) => fromServer(o, user))
+          set((s) => ({ orders: [...s.orders.filter((o) => o.status === 'pending_payment' && !fromApi.some((x) => x.payment.reference && x.payment.reference === o.payment.reference)), ...fromApi] }))
+        } catch { /* keep what we have */ }
+      },
+
       devMarkDelivered: (orderId) => {
         const order = get().orders.find((o) => o.id === orderId)
         if (!order || order.status !== 'paid') return
@@ -256,6 +304,12 @@ export const useOrdersStore = create<OrdersState>()(
         }
       },
     }),
-    { name: 'karta-orders', version: 1, storage: createJSONStorage(() => safeStorage) },
+    {
+      name: 'karta-orders',
+      version: 1,
+      storage: createJSONStorage(() => safeStorage),
+      // Production keeps only a payment in progress in the browser; delivery details live on the server.
+      partialize: (state) => (AUTH_API ? { orders: state.orders.filter((o) => o.status === 'pending_payment') } as unknown as typeof state : state),
+    },
   ),
 )

@@ -104,6 +104,27 @@ describe('vendor listings and review', () => {
   })
 })
 
+describe('public vendor directory', () => {
+  it('lists verified vendors only, with no contact or bank details', async () => {
+    const ok = await vendor('Directory Shop'); const pending = await vendor('Pending Shop', false)
+    const list = (await h.client().get('/api/vendors')).body.vendors as { id: string; name: string }[]
+    assert.ok(list.some((v) => v.id === ok.user.id)); assert.ok(!list.some((v) => v.id === pending.user.id))
+    const raw = JSON.stringify(list)
+    assert.ok(!raw.includes(ok.u.email)); assert.ok(!/accountNumber|bankName|phone/i.test(raw))
+  })
+})
+
+describe('admin vendor list carries the full application', () => {
+  it('so the review screens need only one request', async () => {
+    const v = await vendor('Full App Shop')
+    h.deps.db.prepare("UPDATE vendor_applications SET status = 'under_review', submitted_at = ? WHERE user_id = ?").run(new Date().toISOString(), v.user.id)
+    const list = (await admin.get('/api/admin/vendor-applications')).body.applications as { email: string; application: { contact: { phone: string }; status: string } }[]
+    const row = list.find((a) => a.email === v.u.email)!
+    assert.equal(row.application.status, 'under_review'); assert.ok('contact' in row.application)
+    assert.equal((await v.c.get('/api/admin/vendor-applications')).status, 403)
+  })
+})
+
 describe('paid orders become per-vendor fulfilment', () => {
   async function paidTwoVendorOrder() {
     const v1 = await vendor('Vendor Uno'), v2 = await vendor('Vendor Dos')

@@ -110,3 +110,14 @@ review/recommendation thresholds, starting trust score.
 - Web (production builds): `useCatalog()` now reads the real catalogue from the API. Demo seed products are no longer
   mixed in (they could never be bought). Made-for-you pieces load by id for their own customer only.
 - Still local: vendor screens (profile, listings, orders), admin listing review and admin orders. Next step.
+
+## Vendor, admin and customer screens now use the server (production builds)
+
+- **Vendor**: profile/onboarding, products (with Cloudinary photos) and orders. The server is the only copy; nothing about
+  vendors is kept in the browser. Detail pages wait for the server instead of redirecting.
+- **Admin**: vendor verification (list, review, decisions with history) and listing moderation.
+- **Shoppers**: live catalogue and the verified-vendor directory (`GET /api/vendors`).
+- **Customers**: order history and per-vendor delivery progress from `GET /api/orders`; only an unpaid checkout stays in the browser.
+- `dev-tests/e2e.mjs` runs the site's own code against a REAL backend (sign-up, verify, apply, approve, list, moderate,
+  appear in the shop). The command to run it is at the top of the file.
+- NOT yet on the server: driver (logistics) screens, returns, reviews, chat, custom requests, payouts, forgot password.
