@@ -66,6 +66,12 @@ export default function LoginPage() {
         Sign in to continue to checkout and your orders.
       </p>
 
+      {from && from !== '/' && (
+        <p role="status" className="mt-6 rounded-2xl border border-[#b79a6b]/30 bg-[#b79a6b]/[0.08] px-4 py-3 text-sm text-[#151b1c]/75">
+          Please sign in to continue. We’ll take you straight back to where you were.
+        </p>
+      )}
+
       <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
         <Field
           label="Email"

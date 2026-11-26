@@ -155,6 +155,9 @@ export interface Product {
   /** Customer-facing dimensions string. */
   dimensions: string
 
+  /** Longer description, used for search. */
+  description?: string
+
   /** Available product finishes / colour variants. */
   colors?: ProductColor[]
 

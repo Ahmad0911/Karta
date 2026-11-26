@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import {
   ArrowRight,
   Heart,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 
 import Logo from '@/components/brand/Logo'
+import SearchBox from '@/components/search/SearchBox'
 import { rooms } from '@/data/rooms'
 import { useAuthStore } from '@/store/auth.store'
 import { useCartCount, useCartStore } from '@/store/cart.store'
@@ -46,9 +47,7 @@ const navActive = `${navBase} font-semibold text-ink after:w-full`
 export default function Header() {
   const [open, setOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [q, setQ] = useState('')
 
-  const navigate = useNavigate()
   const { pathname, search: urlSearch } = useLocation()
 
   const user = useAuthStore((s) => s.user)
@@ -65,14 +64,6 @@ export default function Header() {
     setOpen(false)
     setSearchOpen(false)
   }, [pathname, urlSearch])
-
-  const submitSearch = (e: FormEvent) => {
-    e.preventDefault()
-
-    const query = q.trim()
-
-    navigate(query ? `/shop?q=${encodeURIComponent(query)}` : '/shop')
-  }
 
   return (
     <header className="sticky top-0 z-50">
@@ -129,21 +120,9 @@ export default function Header() {
             {/* Right controls */}
             <div className="flex items-center gap-0.5 sm:gap-1">
               {/* Wide desktop: always-visible search */}
-              <form
-                onSubmit={submitSearch}
-                role="search"
-                className="relative mr-2 hidden xl:block"
-              >
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-ink/30" />
-
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search the collection"
-                  aria-label="Search furniture and vendors"
-                  className="h-10 w-60 rounded-full border border-ink/[0.09] bg-white/45 pl-10 pr-4 text-[12px] text-ink outline-none transition-all duration-500 placeholder:text-ink/30 hover:border-ink/[0.15] hover:bg-white/70 focus:w-72 focus:border-ink/20 focus:bg-white focus:ring-4 focus:ring-ink/[0.025]"
-                />
-              </form>
+              <div className="mr-2 hidden xl:block">
+                <SearchBox variant="slim" />
+              </div>
 
               {/* Narrow desktop (lg to xl): search icon opens a panel */}
               <button
@@ -208,18 +187,7 @@ export default function Header() {
       {searchOpen && (
         <div className="hidden border-b border-ink/[0.08] bg-paper lg:block xl:hidden">
           <div className="container-x py-4">
-            <form onSubmit={submitSearch} role="search" className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/30" />
-
-              <input
-                autoFocus
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search the collection"
-                aria-label="Search furniture and vendors"
-                className="h-12 w-full rounded-full border border-ink/[0.09] bg-white pl-11 pr-4 text-sm text-ink outline-none transition-all placeholder:text-ink/30 focus:border-ink/20 focus:ring-4 focus:ring-ink/[0.025]"
-              />
-            </form>
+            <SearchBox variant="roomy" autoFocus onDone={() => setSearchOpen(false)} />
           </div>
         </div>
       )}
@@ -234,17 +202,7 @@ export default function Header() {
       >
         <div className="container-x">
           <div className="space-y-7 py-7">
-            <form onSubmit={submitSearch} role="search" className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/30" />
-
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search the collection"
-                aria-label="Search furniture and vendors"
-                className="h-12 w-full rounded-full border border-ink/[0.09] bg-white pl-11 pr-4 text-sm text-ink outline-none transition-all placeholder:text-ink/30 focus:border-ink/20 focus:ring-4 focus:ring-ink/[0.025]"
-              />
-            </form>
+            <SearchBox variant="roomy" onDone={() => setOpen(false)} />
 
             <div>
               <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-brass-700">

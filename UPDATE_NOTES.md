@@ -121,3 +121,14 @@ review/recommendation thresholds, starting trust score.
 - `dev-tests/e2e.mjs` runs the site's own code against a REAL backend (sign-up, verify, apply, approve, list, moderate,
   appear in the shop). The command to run it is at the top of the file.
 - NOT yet on the server: driver (logistics) screens, returns, reviews, chat, custom requests, payouts, forgot password.
+
+## Search, filters and link fixes
+
+- `src/modules/catalog/search.ts`: synonyms (couch→sofa, closet→wardrobe), plurals, typo tolerance, every word must match
+  and is ranked by where it matched, prices in words ("bed under 600k", "table between 200k and 500k"), closest matches and
+  "did you mean" when nothing matches exactly. Covered by `dev-tests/test17.mjs`.
+- Header search now shows live suggestions (pieces, types, rooms), recent searches and popular searches; arrow keys, Enter, Esc.
+- Shop page: filter by room, type, price and stock; sort; removable filter chips; result counts; loading skeletons; a helpful
+  empty state. Everything is in the URL, so a filtered view can be shared or reached with the back button.
+- Fixed a dead link on the 404 page (`/products`), added `vercel.json` so every page loads when opened directly or refreshed
+  on Vercel (Netlify already had `public/_redirects`), and the login page now explains "please sign in to continue".

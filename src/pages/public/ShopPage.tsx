@@ -1,157 +1,103 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Search, SlidersHorizontal, ChevronDown, X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
 
+import { categories } from '@/data/categories'
 import { rooms } from '@/data/rooms'
-import { useCatalog } from '@/modules/catalog/useCatalog'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
+import { formatNaira } from '@/lib/format'
 import ProductCard from '@/modules/catalog/components/ProductCard'
+import { PRICE_BANDS, POPULAR_SEARCHES, facets as buildFacets, search, type Sort } from '@/modules/catalog/search'
+import { useCatalog } from '@/modules/catalog/useCatalog'
 
-type Sort = 'relevance' | 'price-asc' | 'price-desc' | 'rating'
+const chip = (on: boolean) =>
+  `shrink-0 rounded-full border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] transition-all duration-300 ${
+    on
+      ? 'border-[#151b1c] bg-[#151b1c] text-white shadow-[0_5px_18px_rgba(21,27,28,0.12)]'
+      : 'border-[#151b1c]/10 bg-white/50 text-[#151b1c]/50 hover:border-[#151b1c]/25 hover:bg-white hover:text-[#151b1c]'
+  }`
+
+const selectClass =
+  'h-10 w-full appearance-none rounded-full border border-[#151b1c]/10 bg-white/70 pl-4 pr-9 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#151b1c]/65 outline-none transition-all duration-300 hover:border-[#151b1c]/25 focus:border-[#8f7651]/50'
+
+const num = (v: string | null) => (v && /^\d+$/.test(v) ? Number(v) : undefined)
 
 export default function ShopPage() {
-  const { products } = useCatalog()
+  const { products, status } = useCatalog() as ReturnType<typeof useCatalog> & { status?: string }
   useDocumentTitle('Shop the collection')
 
   const [params, setParams] = useSearchParams()
-  const [sort, setSort] = useState<Sort>('relevance')
+  const [showFilters, setShowFilters] = useState(false)
 
-  const cat = params.get('room') ?? 'all'
-  const q = (params.get('q') ?? '').trim().toLowerCase()
+  // Everything lives in the address bar, so any view can be shared, bookmarked and reached by the back button.
+  const q = params.get('q') ?? ''
+  const room = params.get('room') ?? undefined
+  const category = params.get('category') ?? undefined
+  const min = num(params.get('min'))
+  const max = num(params.get('max'))
+  const inStock = params.get('stock') === '1'
+  const sort = (['price-asc', 'price-desc', 'rating'].includes(params.get('sort') ?? '') ? params.get('sort') : 'relevance') as Sort
 
-  const list = useMemo(() => {
-    const filtered = products.filter(
-      (product) =>
-        (cat === 'all' || product.room === cat) &&
-        (!q ||
-          `${product.name} ${product.vendor.name} ${product.material}`
-            .toLowerCase()
-            .includes(q)),
-    )
+  const result = useMemo(
+    () => search(products, { q, room, category, min, max, inStock, sort }),
+    [products, q, room, category, min, max, inStock, sort],
+  )
+  const facet = useMemo(() => buildFacets(products, q), [products, q])
+  const list = result.products
 
-    if (sort === 'price-asc') {
-      return [...filtered].sort((a, b) => a.price - b.price)
-    }
-
-    if (sort === 'price-desc') {
-      return [...filtered].sort((a, b) => b.price - a.price)
-    }
-
-    if (sort === 'rating') {
-      return [...filtered].sort((a, b) => b.rating - a.rating)
-    }
-
-    return filtered
-  }, [products, cat, q, sort])
-
-  const setCat = (id: string) => {
+  const set = (patch: Record<string, string | undefined>, replace = false) => {
     const next = new URLSearchParams(params)
-
-    if (id === 'all') {
-      next.delete('room')
-    } else {
-      next.set('room', id)
-    }
-
-    setParams(next)
+    for (const [k, v] of Object.entries(patch)) (v === undefined || v === '' ? next.delete(k) : next.set(k, v))
+    setParams(next, { replace })
   }
+  const clearAll = () => setParams(new URLSearchParams())
 
-  const clearSearch = () => {
-    const next = new URLSearchParams(params)
-    next.delete('q')
-    setParams(next, { replace: true })
-  }
+  // The price the person typed in words ("under 300k") is shown as a removable chip too.
+  const textMax = max === undefined ? result.priceFromText.max : undefined
+  const textMin = min === undefined ? result.priceFromText.min : undefined
+  const band = PRICE_BANDS.find((b) => (b as { min?: number }).min === min && (b as { max?: number }).max === max)
 
-  const activeRoom =
-    cat === 'all' ? 'All pieces' : rooms.find((room) => room.id === cat)?.name
+  const active: { key: string; label: string; remove: () => void }[] = [
+    ...(room ? [{ key: 'room', label: rooms.find((r) => r.id === room)?.name ?? room, remove: () => set({ room: undefined }) }] : []),
+    ...(category ? [{ key: 'category', label: categories.find((c) => c.id === category)?.name ?? category, remove: () => set({ category: undefined }) }] : []),
+    ...(min !== undefined || max !== undefined
+      ? [{ key: 'price', label: band?.label ?? `${min !== undefined ? formatNaira(min) : '₦0'} – ${max !== undefined ? formatNaira(max) : 'any'}`, remove: () => set({ min: undefined, max: undefined }) }]
+      : []),
+    ...(inStock ? [{ key: 'stock', label: 'In stock', remove: () => set({ stock: undefined }) }] : []),
+  ]
+
+  const loading = status === 'idle' || status === 'loading'
+  const filtered = active.length > 0 || q !== ''
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#f8f6f1] text-[#151b1c]">
-      {/* ================================================================ */}
-      {/* Collection Header                                                */}
-      {/* ================================================================ */}
-
+      {/* ---------------------------------------------------------------- */}
+      {/* Header + search                                                   */}
+      {/* ---------------------------------------------------------------- */}
       <section className="relative">
-        {/* Ambient luxury lighting */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-[#b79a6b]/[0.07] blur-3xl"
-        />
-
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-0 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-[#151b1c]/[0.025] blur-3xl"
-        />
-
-        <div className="container-x relative pb-10 pt-12 sm:pb-14 sm:pt-16 lg:pb-16 lg:pt-20">
-          {/* Eyebrow */}
+        <div aria-hidden="true" className="pointer-events-none absolute -right-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-[#b79a6b]/[0.07] blur-3xl" />
+        <div className="container-x relative pb-8 pt-12 sm:pb-10 sm:pt-16 lg:pt-20">
           <div className="flex items-center gap-3">
             <span className="h-px w-8 bg-[#b79a6b]" />
-
-            <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[#8f7651]">
-              The Karta Collection
-            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[#8f7651]">The Karta Collection</p>
           </div>
 
-          {/* Heading */}
-          <div className="mt-6 max-w-4xl">
-            <h1 className="font-display text-[3rem] font-medium leading-[0.98] tracking-[-0.045em] text-[#151b1c] sm:text-6xl lg:text-[5.2rem]">
-              {q ? (
-                <>
-                  Pieces matching{' '}
-                  <span className="text-[#8f7651]">“{q}”</span>
-                </>
-              ) : (
-                <>
-                  Objects for
-                  <br />
-                  <span className="text-[#8f7651]">beautiful living.</span>
-                </>
-              )}
-            </h1>
-          </div>
+          <h1 className="mt-6 max-w-4xl font-display text-[2.6rem] font-medium leading-[1] tracking-[-0.04em] sm:text-6xl lg:text-[4.6rem]">
+            {q ? (<>Pieces matching <span className="text-[#8f7651]">“{q}”</span></>) : (<>Objects for <br /><span className="text-[#8f7651]">beautiful living.</span></>)}
+          </h1>
 
-          <p className="mt-6 max-w-xl text-sm leading-7 text-[#151b1c]/50 sm:text-base">
-            A considered collection of furniture designed to bring warmth,
-            character and quiet sophistication into the spaces you inhabit.
-          </p>
-
-          {/* ============================================================ */}
-          {/* Search                                                        */}
-          {/* ============================================================ */}
-
-          <div className="mt-9 max-w-xl">
+          <div className="mt-8 max-w-xl">
             <div className="group relative">
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#151b1c]/30 transition-colors duration-300 group-focus-within:text-[#8f7651]"
-              />
-
+              <Search aria-hidden="true" className="pointer-events-none absolute left-5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#151b1c]/30 transition-colors group-focus-within:text-[#8f7651]" />
               <input
-                value={params.get('q') ?? ''}
+                value={q}
                 aria-label="Search the collection"
-                placeholder="Search furniture, materials or makers"
-                className="h-14 w-full rounded-full border border-[#151b1c]/10 bg-white/75 pl-13 pr-12 text-sm text-[#151b1c] outline-none backdrop-blur-md transition-all duration-300 placeholder:text-[#151b1c]/30 hover:border-[#151b1c]/20 focus:border-[#8f7651]/50 focus:bg-white focus:shadow-[0_15px_40px_rgba(21,27,28,0.06)]"
-                onChange={(event) => {
-                  const next = new URLSearchParams(params)
-
-                  if (event.target.value) {
-                    next.set('q', event.target.value)
-                  } else {
-                    next.delete('q')
-                  }
-
-                  setParams(next, { replace: true })
-                }}
+                placeholder="Try “sofa”, “oak bed” or “table under 300k”"
+                className="h-14 w-full rounded-full border border-[#151b1c]/10 bg-white/75 pl-13 pr-12 text-sm outline-none backdrop-blur-md transition-all duration-300 placeholder:text-[#151b1c]/30 hover:border-[#151b1c]/20 focus:border-[#8f7651]/50 focus:bg-white focus:shadow-[0_15px_40px_rgba(21,27,28,0.06)]"
+                onChange={(e) => set({ q: e.target.value }, true)}
               />
-
               {q && (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  onClick={clearSearch}
-                  className="absolute right-4 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#151b1c]/35 transition-all duration-300 hover:bg-[#151b1c]/[0.06] hover:text-[#151b1c]"
-                >
+                <button type="button" aria-label="Clear search" onClick={() => set({ q: undefined }, true)} className="absolute right-4 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#151b1c]/35 hover:bg-[#151b1c]/[0.06] hover:text-[#151b1c]">
                   <X className="h-4 w-4" />
                 </button>
               )}
@@ -160,189 +106,152 @@ export default function ShopPage() {
         </div>
       </section>
 
-      {/* ================================================================ */}
-      {/* Filter / Sort Bar                                                 */}
-      {/* ================================================================ */}
-
-      <section className="sticky top-0 z-20 border-y border-[#151b1c]/[0.07] bg-[#f8f6f1]/90 backdrop-blur-xl">
+      {/* ---------------------------------------------------------------- */}
+      {/* Filter bar                                                        */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="sticky top-0 z-20 border-y border-[#151b1c]/[0.07] bg-[#f8f6f1]/92 backdrop-blur-xl">
         <div className="container-x">
-          <div className="flex flex-col gap-4 py-4 lg:flex-row lg:items-center lg:justify-between">
-            {/* Categories */}
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="hidden shrink-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#151b1c]/35 sm:flex">
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                Browse
+          <div className="flex flex-col gap-3 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 scrollbar-none">
+                <button type="button" onClick={() => set({ room: undefined })} className={chip(!room)}>All</button>
+                {rooms.map((r) => {
+                  const n = facet.rooms.find((f) => f.id === r.id)?.count
+                  return (
+                    <button key={r.id} type="button" onClick={() => set({ room: r.id })} className={chip(room === r.id)}>
+                      {r.name}{q && n !== undefined ? <span className="ml-1.5 opacity-50">{n}</span> : null}
+                    </button>
+                  )
+                })}
               </div>
 
-              <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 scrollbar-none">
-                <button
-                  type="button"
-                  onClick={() => setCat('all')}
-                  className={`shrink-0 rounded-full border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] transition-all duration-300 ${
-                    cat === 'all'
-                      ? 'border-[#151b1c] bg-[#151b1c] text-white shadow-[0_5px_18px_rgba(21,27,28,0.12)]'
-                      : 'border-[#151b1c]/10 bg-white/50 text-[#151b1c]/50 hover:border-[#151b1c]/25 hover:bg-white hover:text-[#151b1c]'
-                  }`}
-                >
-                  All
-                </button>
+              <button type="button" onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters} className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-[#151b1c]/10 bg-white/70 px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#151b1c]/65 hover:border-[#151b1c]/25">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Filters{active.length > 0 && <span className="rounded-full bg-[#151b1c] px-1.5 text-[10px] text-white">{active.length}</span>}
+              </button>
+            </div>
 
-                {rooms.map((room) => (
-                  <button
-                    key={room.id}
-                    type="button"
-                    onClick={() => setCat(room.id)}
-                    className={`shrink-0 rounded-full border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] transition-all duration-300 ${
-                      cat === room.id
-                        ? 'border-[#151b1c] bg-[#151b1c] text-white shadow-[0_5px_18px_rgba(21,27,28,0.12)]'
-                        : 'border-[#151b1c]/10 bg-white/50 text-[#151b1c]/50 hover:border-[#151b1c]/25 hover:bg-white hover:text-[#151b1c]'
-                    }`}
+            {showFilters && (
+              <div className="grid gap-3 rounded-2xl border border-[#151b1c]/[0.07] bg-white/60 p-4 sm:grid-cols-2 lg:grid-cols-4">
+                <label className="relative block">
+                  <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#151b1c]/40">Type</span>
+                  <select value={category ?? ''} onChange={(e) => set({ category: e.target.value })} className={selectClass}>
+                    <option value="">All types</option>
+                    {categories.map((c) => { const n = facet.categories.find((f) => f.id === c.id)?.count; return <option key={c.id} value={c.id}>{c.name}{q && n !== undefined ? ` (${n})` : ''}</option> })}
+                  </select>
+                  <ChevronDown aria-hidden="true" className="pointer-events-none absolute bottom-3 right-3 h-3.5 w-3.5 text-[#151b1c]/35" />
+                </label>
+
+                <label className="relative block">
+                  <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#151b1c]/40">Price</span>
+                  <select
+                    value={band?.id ?? ''}
+                    onChange={(e) => { const b = PRICE_BANDS.find((x) => x.id === e.target.value) as { min?: number; max?: number } | undefined; set({ min: b?.min?.toString(), max: b?.max?.toString() }) }}
+                    className={selectClass}
                   >
-                    {room.name}
+                    <option value="">Any price</option>
+                    {PRICE_BANDS.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+                  </select>
+                  <ChevronDown aria-hidden="true" className="pointer-events-none absolute bottom-3 right-3 h-3.5 w-3.5 text-[#151b1c]/35" />
+                </label>
+
+                <label className="relative block">
+                  <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#151b1c]/40">Sort by</span>
+                  <select value={sort} onChange={(e) => set({ sort: e.target.value === 'relevance' ? undefined : e.target.value })} className={selectClass}>
+                    <option value="relevance">Best match</option>
+                    <option value="price-asc">Price: low to high</option>
+                    <option value="price-desc">Price: high to low</option>
+                    <option value="rating">Highest rated</option>
+                  </select>
+                  <ChevronDown aria-hidden="true" className="pointer-events-none absolute bottom-3 right-3 h-3.5 w-3.5 text-[#151b1c]/35" />
+                </label>
+
+                <div className="flex items-end">
+                  <label className="flex h-10 cursor-pointer items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#151b1c]/65">
+                    <input type="checkbox" checked={inStock} onChange={(e) => set({ stock: e.target.checked ? '1' : undefined })} className="h-4 w-4 accent-[#151b1c]" />
+                    In stock only
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {(active.length > 0 || textMax !== undefined || textMin !== undefined) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {active.map((a) => (
+                  <button key={a.key} type="button" onClick={a.remove} className="inline-flex items-center gap-1.5 rounded-full border border-[#151b1c]/10 bg-white px-3 py-1.5 text-[11px] font-medium text-[#151b1c]/70 hover:border-[#151b1c]/25">
+                    {a.label}<X className="h-3 w-3" aria-label={`Remove ${a.label}`} />
                   </button>
                 ))}
+                {(textMax !== undefined || textMin !== undefined) && (
+                  <span className="inline-flex items-center rounded-full bg-[#b79a6b]/15 px-3 py-1.5 text-[11px] font-medium text-[#8f7651]">
+                    {textMin !== undefined && textMax !== undefined ? `${formatNaira(textMin)} – ${formatNaira(textMax)}` : textMax !== undefined ? `Under ${formatNaira(textMax)}` : `Over ${formatNaira(textMin!)}`}
+                  </span>
+                )}
+                {active.length > 0 && <button type="button" onClick={() => set({ room: undefined, category: undefined, min: undefined, max: undefined, stock: undefined })} className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8f7651] underline-offset-4 hover:underline">Clear filters</button>}
               </div>
-            </div>
-
-            {/* Results + Sort */}
-            <div className="flex shrink-0 items-center justify-between gap-4 lg:justify-end">
-              <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#151b1c]/35">
-                <span className="font-semibold text-[#151b1c]/65">
-                  {list.length}
-                </span>{' '}
-                {list.length === 1 ? 'piece' : 'pieces'}
-              </p>
-
-              <div className="relative">
-                <select
-                  value={sort}
-                  aria-label="Sort collection"
-                  onChange={(event) =>
-                    setSort(event.target.value as Sort)
-                  }
-                  className="h-10 appearance-none rounded-full border border-[#151b1c]/10 bg-white/70 pl-4 pr-10 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#151b1c]/65 outline-none transition-all duration-300 hover:border-[#151b1c]/25 focus:border-[#8f7651]/50"
-                >
-                  <option value="relevance">Relevance</option>
-                  <option value="price-asc">Price: low to high</option>
-                  <option value="price-desc">Price: high to low</option>
-                  <option value="rating">Highest rated</option>
-                </select>
-
-                <ChevronDown
-                  aria-hidden="true"
-                  className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#151b1c]/35"
-                />
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
 
-      {/* ================================================================ */}
-      {/* Collection Grid                                                   */}
-      {/* ================================================================ */}
-
-      <section className="container-x py-10 sm:py-14 lg:py-16">
-        {/* Active collection indicator */}
-        <div className="mb-7 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#8f7651]">
-              Curated selection
-            </p>
-
-            <p className="mt-1 text-sm text-[#151b1c]/45">
-              {activeRoom}
-              {q && (
-                <>
-                  {' '}
-                  · Search results
-                </>
-              )}
-            </p>
+      {/* ---------------------------------------------------------------- */}
+      {/* Results                                                           */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="container-x py-10 sm:py-14">
+        <div className="mb-8 flex flex-wrap items-baseline justify-between gap-3" aria-live="polite">
+          <p className="text-sm text-[#151b1c]/55">
+            <span className="font-semibold text-[#151b1c]">{list.length}</span> {list.length === 1 ? 'piece' : 'pieces'}
+            {q && result.mode !== 'none' && <> for “{q}”</>}
+          </p>
+          <div className="hidden items-center gap-2 text-[11px] sm:flex">
+            <span className="uppercase tracking-[0.16em] text-[#151b1c]/35">Sort</span>
+            {([['relevance', 'Best match'], ['price-asc', 'Price ↑'], ['price-desc', 'Price ↓'], ['rating', 'Top rated']] as [Sort, string][]).map(([id, label]) => (
+              <button key={id} type="button" onClick={() => set({ sort: id === 'relevance' ? undefined : id })} className={`rounded-full px-3 py-1.5 font-medium ${sort === id ? 'bg-[#151b1c] text-white' : 'text-[#151b1c]/55 hover:bg-[#151b1c]/[0.05]'}`}>{label}</button>
+            ))}
           </div>
-
-          <span className="hidden h-px w-20 bg-[#b79a6b]/40 sm:block" />
         </div>
 
-        {list.length === 0 ? (
-          /* ============================================================ */
-          /* Empty State                                                  */
-          /* ============================================================ */
+        {result.mode === 'related' && (
+          <div className="mb-8 rounded-2xl border border-[#b79a6b]/30 bg-[#b79a6b]/[0.07] px-5 py-4 text-sm text-[#151b1c]/75">
+            We couldn’t find a piece that matches <strong>every</strong> word in “{q}”, so here are the closest ones.
+            {result.didYouMean && <> Did you mean <button type="button" onClick={() => set({ q: result.didYouMean }, true)} className="font-semibold text-[#8f7651] underline underline-offset-4">{result.didYouMean}</button>?</>}
+          </div>
+        )}
 
-          <div className="flex min-h-[420px] items-center justify-center rounded-[2rem] border border-[#151b1c]/[0.07] bg-white/45 px-6 text-center">
-            <div className="max-w-md">
-              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#b79a6b]/30 bg-[#b79a6b]/[0.06]">
-                <Search className="h-5 w-5 text-[#8f7651]" />
-              </span>
-
-              <p className="mt-6 font-display text-3xl tracking-tight text-[#151b1c]">
-                Nothing found.
-              </p>
-
-              <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-[#151b1c]/45">
-                We couldn't find a piece matching your current search or
-                category. Try exploring another part of the collection.
-              </p>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const next = new URLSearchParams()
-                  setParams(next)
-                }}
-                className="mt-7 inline-flex h-11 items-center rounded-full bg-[#151b1c] px-6 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#243033] hover:shadow-[0_12px_30px_rgba(21,27,28,0.16)]"
-              >
-                View all pieces
-              </button>
-            </div>
+        {loading && list.length === 0 ? (
+          <div className="grid grid-cols-2 gap-x-3 gap-y-10 sm:gap-x-5 lg:grid-cols-4" aria-busy="true">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i}><div className="aspect-[4/5] animate-pulse rounded-2xl bg-[#151b1c]/[0.06]" /><div className="mt-4 h-3 w-3/4 animate-pulse rounded bg-[#151b1c]/[0.06]" /><div className="mt-2 h-3 w-1/3 animate-pulse rounded bg-[#151b1c]/[0.06]" /></div>
+            ))}
+          </div>
+        ) : list.length === 0 ? (
+          <div className="mx-auto flex min-h-[380px] max-w-xl flex-col items-center justify-center rounded-[2rem] border border-[#151b1c]/[0.07] bg-white/45 px-6 py-12 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full border border-[#b79a6b]/30 bg-[#b79a6b]/[0.06]"><Search className="h-5 w-5 text-[#8f7651]" /></span>
+            <p className="mt-6 font-display text-3xl tracking-tight">{filtered ? 'Nothing matches that.' : 'No pieces yet.'}</p>
+            <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-[#151b1c]/50">
+              {filtered ? 'Check the spelling, remove a filter, or try one of these.' : 'New pieces from our verified makers will appear here very soon.'}
+            </p>
+            {result.didYouMean && <p className="mt-4 text-sm">Did you mean <button type="button" onClick={() => set({ q: result.didYouMean }, true)} className="font-semibold text-[#8f7651] underline underline-offset-4">{result.didYouMean}</button>?</p>}
+            {filtered && (
+              <>
+                <div className="mt-6 flex flex-wrap justify-center gap-2">
+                  {POPULAR_SEARCHES.map((p) => <button key={p} type="button" onClick={() => setParams(new URLSearchParams({ q: p }))} className="rounded-full border border-[#151b1c]/10 bg-white px-4 py-2 text-xs font-medium text-[#151b1c]/70 hover:border-[#151b1c]/25">{p}</button>)}
+                </div>
+                <button type="button" onClick={clearAll} className="mt-7 inline-flex h-11 items-center rounded-full bg-[#151b1c] px-6 text-[11px] font-semibold uppercase tracking-[0.16em] text-white hover:bg-[#243033]">Clear search and filters</button>
+              </>
+            )}
+            <Link to="/request" className="mt-5 text-xs text-[#151b1c]/55 underline underline-offset-4 hover:text-[#151b1c]">Can’t find it? Request a custom piece</Link>
           </div>
         ) : (
-          /* ============================================================ */
-          /* Products                                                     */
-          /* ============================================================ */
-
           <div className="grid grid-cols-2 gap-x-3 gap-y-10 sm:gap-x-5 sm:gap-y-12 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-16">
             {list.map((product, index) => (
-              <div
-                key={product.id}
-                className="animate-[fadeIn_500ms_ease-out_both]"
-                style={{
-                  animationDelay: `${Math.min(index * 45, 360)}ms`,
-                }}
-              >
+              <div key={product.id} className="animate-[fadeIn_500ms_ease-out_both]" style={{ animationDelay: `${Math.min(index * 45, 360)}ms` }}>
                 <ProductCard product={product} />
               </div>
             ))}
           </div>
         )}
       </section>
-
-      {/* ================================================================ */}
-      {/* Bottom Editorial Detail                                          */}
-      {/* ================================================================ */}
-
-      {list.length > 0 && (
-        <section className="border-t border-[#151b1c]/[0.06] bg-[#eeebe4]">
-          <div className="container-x py-14 sm:py-20">
-            <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8f7651]">
-                  Karta / Objects
-                </p>
-
-                <h2 className="mt-3 max-w-xl font-display text-3xl leading-tight tracking-[-0.025em] text-[#151b1c] sm:text-4xl">
-                  Chosen for spaces that deserve to be remembered.
-                </h2>
-              </div>
-
-              <p className="max-w-sm text-xs leading-6 text-[#151b1c]/45">
-                Discover considered pieces from makers selected for their
-                craftsmanship, materiality and enduring character.
-              </p>
-            </div>
-          </div>
-        </section>
-      )}
     </main>
   )
 }

@@ -108,7 +108,7 @@ export default function NotFoundPage() {
                 </Link>
 
                 <Link
-                  to="/products"
+                  to="/shop"
                   className="group inline-flex h-12 items-center justify-center gap-3 rounded-full border border-[#151b1c]/10 bg-white/60 px-7 text-[10px] font-semibold uppercase tracking-[0.17em] text-[#151b1c]/65 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#151b1c]/20 hover:bg-white hover:text-[#151b1c] hover:shadow-[0_14px_35px_rgba(21,27,28,0.06)] sm:h-13"
                 >
                   <Search

@@ -17,6 +17,7 @@ interface ApiListing {
   room: string
   material: string
   dimensions: string
+  description?: string
   colors: ProductColor[]
   priceKobo: number
   originalPriceKobo: number | null
@@ -43,6 +44,7 @@ export const toProduct = (l: ApiListing): Product => ({
   reviewCount: 0,
   material: l.material,
   dimensions: l.dimensions,
+  description: l.description,
   colors: l.colors.length ? l.colors : undefined,
   deliveryEstimateDays: [l.deliveryMinDays, l.deliveryMaxDays],
   assemblyAvailable: l.assemblyAvailable,
