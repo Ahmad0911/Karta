@@ -8,6 +8,7 @@ import type { Deps } from './deps.ts'
 import { systemClock } from './platform/clock.ts'
 import { migrate, openDb } from './platform/db.ts'
 import { jsonLogger } from './platform/logger.ts'
+import { bootstrapAdmin } from './modules/auth/bootstrapAdmin.ts'
 import { createPaystackClient } from './platform/paystack.ts'
 import { consoleNotifier, createLiveNotifier, noopNotifier } from './platform/notifier.ts'
 import { RateLimiter } from './platform/ratelimit.ts'
@@ -23,8 +24,11 @@ const deps: Deps = {
   paystack: config.paystackSecretKey ? createPaystackClient(config.paystackSecretKey) : undefined,
 }
 
+await bootstrapAdmin(deps)
+
 const handler = createApp(deps)
 const server = createServer((req, res) => void handler(req, res))
+if (config.staging) deps.log.log('warn', 'STAGING MODE: test payments only, verification codes are printed in this log. Remove STAGING before real customers.')
 server.listen(config.port, () => deps.log.log('info', 'listening', { port: config.port, env: config.env, migrations: applied }))
 
 // Finish in-flight requests, then close the database cleanly.

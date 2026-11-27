@@ -20,6 +20,8 @@ export interface Config {
   bodyLimitBytes: number
   /** Paystack secret key (sk_test_… / sk_live_…). Empty = payments disabled. Server only. */
   paystackSecretKey: string
+  /** A rehearsal with test money on a real server. Never true for real customers. */
+  staging: boolean
   /** Image hosting (Cloudinary). Unset = uploads disabled and any https image URL is accepted (dev/tests). */
   cloudinary?: { cloudName: string; apiKey: string; apiSecret: string }
 }
@@ -50,18 +52,24 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     if (env.EMAIL_FROM && !/^(.+<)?[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>?$/.test(env.EMAIL_FROM)) problems.push('EMAIL_FROM must look like "Karta <hello@yourdomain.com>"')
   }
   if (origins.some((o) => o === '*' || !/^https?:\/\/[^/]+$/.test(o))) problems.push('CORS_ORIGINS must be exact origins like https://karta.example (no "*", no paths)')
+  // STAGING: a private rehearsal on a real server with TEST money. Everything stays locked down except that
+  // Paystack test keys are allowed and verification codes are printed in the server log instead of sent.
+  const staging = prod && env.STAGING === 'true'
+  if (staging && env.PAYSTACK_SECRET_KEY?.startsWith('sk_live_')) problems.push('STAGING=true cannot be combined with a live Paystack key. Remove STAGING before going live')
+  if (staging && !['console', 'live'].includes(notifier)) problems.push('STAGING needs NOTIFIER=console (codes appear in the server log) or NOTIFIER=live')
   if (prod) {
     if (secret.length < 32 || secret === DEV_SECRET) problems.push('JWT_SECRET must be set to 32+ random characters in production')
-    if (notifier !== 'live') problems.push('NOTIFIER must be "live" in production: "console" prints codes to the logs and "none" would silently never deliver them')
+    if (!staging && notifier !== 'live') problems.push('NOTIFIER must be "live" in production: "console" prints codes to the logs and "none" would silently never deliver them')
     if (env.EXPOSE_DEV_CODES === 'true') problems.push('EXPOSE_DEV_CODES must not be true in production')
     if ((env.DATABASE_PATH ?? '') === ':memory:') problems.push('DATABASE_PATH cannot be :memory: in production')
     if (origins.some((o) => o.startsWith('http://'))) problems.push('CORS_ORIGINS must be https:// in production')
-    if (env.PAYSTACK_SECRET_KEY && !env.PAYSTACK_SECRET_KEY.startsWith('sk_live_')) problems.push('PAYSTACK_SECRET_KEY must be a live key (sk_live_…) in production')
+    if (!staging && env.PAYSTACK_SECRET_KEY && !env.PAYSTACK_SECRET_KEY.startsWith('sk_live_')) problems.push('PAYSTACK_SECRET_KEY must be a live key (sk_live_…) in production')
   }
   if (problems.length) throw new Error(`Invalid configuration:\n - ${problems.join('\n - ')}`)
 
   return {
     env: mode,
+    staging,
     port: Number(env.PORT ?? 3000),
     dbPath: env.DATABASE_PATH ?? './data/karta.db',
     jwtSecret: secret,

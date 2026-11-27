@@ -71,3 +71,22 @@ describe('live notifier configuration', () => {
     assert.equal(c.live?.termii.channel, 'dnd')
   })
 })
+
+describe('staging mode', () => {
+  const base = { NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(48), CORS_ORIGINS: 'https://karta.example', DATABASE_PATH: '/data/karta.db' }
+  it('allows a Paystack test key and printed codes, but stays production-strict otherwise', () => {
+    const c = loadConfig({ ...base, STAGING: 'true', NOTIFIER: 'console', PAYSTACK_SECRET_KEY: 'sk_test_abc123' })
+    assert.equal(c.staging, true); assert.equal(c.cookieSecure, true); assert.equal(c.exposeDevCodes, false)
+    assert.throws(() => loadConfig({ ...base, STAGING: 'true', NOTIFIER: 'console', JWT_SECRET: 'short' }), /JWT_SECRET/)
+    assert.throws(() => loadConfig({ ...base, STAGING: 'true', NOTIFIER: 'console', CORS_ORIGINS: 'http://karta.example' }), /https/)
+  })
+  it('refuses to mix staging with live money', () => {
+    assert.throws(() => loadConfig({ ...base, STAGING: 'true', NOTIFIER: 'console', PAYSTACK_SECRET_KEY: 'sk_live_abc123' }), /live Paystack key/)
+  })
+  it('without STAGING, production still demands live keys and real SMS/email', () => {
+    assert.throws(() => loadConfig({ ...base, NOTIFIER: 'console', PAYSTACK_SECRET_KEY: 'sk_test_abc123' }), (e: Error) => /live key/.test(e.message) && /must be "live"/.test(e.message))
+  })
+  it('STAGING is ignored outside production', () => {
+    assert.equal(loadConfig({ NODE_ENV: 'development', STAGING: 'true' }).staging, false)
+  })
+})
