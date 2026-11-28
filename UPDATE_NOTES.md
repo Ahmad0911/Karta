@@ -132,3 +132,13 @@ review/recommendation thresholds, starting trust score.
   empty state. Everything is in the URL, so a filtered view can be shared or reached with the back button.
 - Fixed a dead link on the 404 page (`/products`), added `vercel.json` so every page loads when opened directly or refreshed
   on Vercel (Netlify already had `public/_redirects`), and the login page now explains "please sign in to continue".
+
+## Assembly fee, payouts, refunds
+
+- **Assembly**: the server charges ₦15,000 per unit where the maker offers assembly (`POLICY.assemblyFeeKobo`). Asking for it
+  where it isn't offered is refused. Karta collects it; it isn't part of the vendor's earnings. Confirm that with the business.
+- **Payouts**: earnings are due 7 days after delivery. Admin → Vendor payouts creates a payout from the bank details on file,
+  staff send the money, then record the transfer reference. A delivery can never be in two payouts. Refunded orders are held
+  for review. Vendors see only completed payouts. Money is never moved automatically.
+- **Refunds**: Admin → Orders & refunds lists what needs attention first (vendor declined, sold out, paid twice) and refunds
+  through Paystack, never above what was paid.

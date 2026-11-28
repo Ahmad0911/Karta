@@ -80,8 +80,8 @@ export function validateAddress(a: DeliveryAddress): Record<string, string> {
 interface ApiOrder {
   id: string; number: string; status: 'awaiting_payment' | 'paid' | 'cancelled' | 'refunded'
   ship: { state: string; city: string; address: string }
-  subtotalKobo: number; deliveryKobo: number; totalKobo: number; refundedKobo: number
-  lines: { listingId: string; name: string; unitPriceKobo: number; qty: number; vendorId: string; vendorName: string }[]
+  subtotalKobo: number; assemblyKobo: number; deliveryKobo: number; totalKobo: number; refundedKobo: number
+  lines: { listingId: string; name: string; unitPriceKobo: number; qty: number; assembly: boolean; vendorId: string; vendorName: string }[]
   fulfilment: { number: string; status: string; updatedAt: string; vendorName: string }[]
   createdAt: string; paidAt: string | null
 }
@@ -94,10 +94,10 @@ const fromServer = (o: ApiOrder, user: { email: string; name: string; phone?: st
     customerEmail: user.email.toLowerCase(),
     customerName: user.name,
     placedAt: o.paidAt ?? o.createdAt,
-    lines: o.lines.map((l) => ({ productId: l.listingId, name: l.name, qty: l.qty, unitPrice: Math.round(l.unitPriceKobo / 100), assembly: false, vendorId: l.vendorId, vendorName: l.vendorName })),
+    lines: o.lines.map((l) => ({ productId: l.listingId, name: l.name, qty: l.qty, unitPrice: Math.round(l.unitPriceKobo / 100), assembly: l.assembly, vendorId: l.vendorId, vendorName: l.vendorName })),
     address: { fullName: user.name, phone: user.phone ?? '', street: o.ship.address, city: o.ship.city, state: o.ship.state },
     subtotal: Math.round(o.subtotalKobo / 100),
-    assemblyFee: 0,
+    assemblyFee: Math.round(o.assemblyKobo / 100),
     deliveryFee: Math.round(o.deliveryKobo / 100),
     total: Math.round(o.totalKobo / 100),
     status: o.status === 'cancelled' || o.status === 'refunded' ? 'cancelled' : delivered ? 'delivered' : 'paid',

@@ -1,5 +1,6 @@
+import { AUTH_API } from '@/store/auth.api'
 import { useMemo } from 'react'
-import { ClipboardCheck, LayoutDashboard, MessageSquareWarning, PackageSearch, Truck, UserCheck, LifeBuoy, Undo2, Sparkles } from 'lucide-react'
+import { ClipboardCheck, LayoutDashboard, MessageSquareWarning, PackageSearch, Truck, UserCheck, LifeBuoy, Undo2, Sparkles, Receipt, Wallet } from 'lucide-react'
 
 import PortalLayout, { type PortalNavItem } from '@/layouts/PortalLayout'
 import { useAuthStore } from '@/store/auth.store'
@@ -31,6 +32,10 @@ export default function AdminLayout() {
       { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
       { to: '/admin/vendors', label: 'Vendor applications', icon: ClipboardCheck, badge: waiting },
       { to: '/admin/listings', label: 'Listing moderation', icon: PackageSearch, badge: toModerate },
+      ...(AUTH_API ? [
+        { to: '/admin/orders', label: 'Orders & refunds', icon: Receipt },
+        { to: '/admin/payouts', label: 'Vendor payouts', icon: Wallet },
+      ] : []),
       { to: '/admin/returns', label: 'Returns', icon: Undo2, badge: returnsNeedingStaff },
       { to: '/admin/support', label: 'Inbox (clients & vendors)', icon: LifeBuoy, badge: ticketsOpen },
       { to: '/admin/requests', label: 'Custom requests', icon: Sparkles },

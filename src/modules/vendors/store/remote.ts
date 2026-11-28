@@ -4,7 +4,7 @@ import type { User } from '@/types'
 
 import { createEmptyProfile } from '../lib/onboarding'
 import type { ListingDraft } from '../lib/listings'
-import type { ListingStatus, OrderStatus, VendorListing, VendorOrder, VendorProfile, VendorWorkspace } from '../types'
+import type { ListingStatus, OrderStatus, VendorListing, VendorOrder, VendorPayout, VendorProfile, VendorWorkspace } from '../types'
 
 /**
  * The vendor workspace from the Karta API (production builds).
@@ -61,12 +61,13 @@ interface ApiVendorOrder {
   lines: { listingId: string; name: string; unitPriceKobo: number; qty: number }[]
   subtotalKobo: number; commissionKobo: number; netEarningKobo: number; status: OrderStatus; placedAt: string; deliveredAt: string | null; cancelReason: string | null
   events: { status: OrderStatus; at: string; note: string | null }[]
+  payoutId?: string | null
 }
 export const toOrder = (o: ApiVendorOrder): VendorOrder => ({
   id: o.id, number: o.number, customerLabel: o.customerLabel, city: o.city, state: o.state,
   lines: o.lines.map((l) => ({ listingId: l.listingId, name: l.name, qty: l.qty, unitPrice: Math.round(l.unitPriceKobo / 100), assembly: false })),
   subtotal: Math.round(o.subtotalKobo / 100), commission: Math.round(o.commissionKobo / 100), netEarning: Math.round(o.netEarningKobo / 100),
-  status: o.status, placedAt: o.placedAt, deliveredAt: o.deliveredAt ?? undefined, cancelReason: o.cancelReason ?? undefined,
+  status: o.status, placedAt: o.placedAt, deliveredAt: o.deliveredAt ?? undefined, cancelReason: o.cancelReason ?? undefined, payoutId: o.payoutId ?? undefined,
   events: o.events.map((e) => ({ status: e.status, at: e.at, note: e.note ?? undefined })),
 })
 
@@ -76,16 +77,17 @@ type Put = (email: string, updater: (w: VendorWorkspace | undefined) => VendorWo
 
 /** Replace a vendor's workspace with what the server says. `put` is the store's setter. */
 export async function loadWorkspace(user: User, current: VendorWorkspace | undefined, put: Put): Promise<void> {
-  const [app, listings, orders] = await Promise.all([
+  const [app, listings, orders, payouts] = await Promise.all([
     apiGet<{ application: ApiApplication }>('/vendor/application'),
     apiGet<{ listings: ApiListing[] }>('/vendor/listings'),
     apiGet<{ orders: ApiVendorOrder[] }>('/vendor/orders'),
+    apiGet<{ payouts: { id: string; reference: string; amountKobo: number; orderIds: string[]; paidAt: string | null; bankLabel: string }[] }>('/vendor/payouts'),
   ])
   put(user.email, (w) => ({
     profile: toProfile(app.application, w?.profile ?? current?.profile ?? createEmptyProfile(user)),
     listings: listings.listings.map(toListing),
     orders: orders.orders.map(toOrder),
-    payouts: w?.payouts ?? [],
+    payouts: payouts.payouts.map((p): VendorPayout => ({ id: p.id, reference: p.reference, amount: Math.round(p.amountKobo / 100), orderIds: p.orderIds, paidAt: p.paidAt ?? '', bankLabel: p.bankLabel })),
   }))
 }
 

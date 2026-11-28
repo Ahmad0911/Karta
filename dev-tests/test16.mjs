@@ -7,7 +7,7 @@ const ok = (n, c, x = '') => { if (c) { pass++; console.log('  ✓', n) } else {
 
 // ---- a stand-in server ------------------------------------------------------
 const log = []
-const db = { listings: [], orders: [], app: { status: 'draft', business: { name: 'Ade Woodworks', type: 'individual', rcNumber: '', description: '', categoryIds: [], address: '', city: '', state: '' }, contact: { person: 'Ade', phone: '08031234567', whatsapp: '', email: 'ade@shop.ng' }, payout: { bankName: '', accountNumber: '', accountName: '' }, agreedToTerms: false, trustScore: 0, reviewNote: null, submittedAt: null, decidedAt: null, documents: [] } }
+const db = { listings: [], orders: [], payouts: [], app: { status: 'draft', business: { name: 'Ade Woodworks', type: 'individual', rcNumber: '', description: '', categoryIds: [], address: '', city: '', state: '' }, contact: { person: 'Ade', phone: '08031234567', whatsapp: '', email: 'ade@shop.ng' }, payout: { bankName: '', accountNumber: '', accountName: '' }, agreedToTerms: false, trustScore: 0, reviewNote: null, submittedAt: null, decidedAt: null, documents: [] } }
 let failNext = null
 const json = (s, b) => new Response(b === undefined ? null : JSON.stringify(b), { status: s, headers: { 'content-type': 'application/json' } })
 const err = (s, message, fields) => json(s, { error: { code: 'x', message, details: fields ? { fields } : {} } })
@@ -18,6 +18,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (method === 'GET' && path === '/vendor/application') return json(200, { application: db.app })
   if (method === 'GET' && path === '/vendor/listings') return json(200, { listings: db.listings })
   if (method === 'GET' && path === '/vendor/orders') return json(200, { orders: db.orders })
+  if (method === 'GET' && path === '/vendor/payouts') return json(200, { payouts: db.payouts })
   if (method === 'POST' && path === '/vendor/listings') { const l = { id: 'srv1', sku: 'KRT-SRV1', name: body.name, categoryId: '', room: '', description: '', material: '', dimensions: '', colors: [], priceKobo: 100, originalPriceKobo: null, stock: 0, deliveryMinDays: 3, deliveryMaxDays: 7, assemblyAvailable: false, images: [], status: 'draft', moderationNote: null, createdAt: 't', updatedAt: 't' }; db.listings.unshift(l); return json(201, l) }
   let m
   if ((m = path.match(/^\/vendor\/listings\/(\w+)$/)) && method === 'PUT') { const l = db.listings.find(x => x.id === m[1]); const { priceKobo, originalPriceKobo, ...rest } = body; Object.assign(l, rest, priceKobo !== undefined ? { priceKobo } : {}, originalPriceKobo !== undefined ? { originalPriceKobo } : {}); return json(200, l) }
@@ -68,6 +69,13 @@ const o = ws().orders[0]
 ok('orders arrive in naira with the commission worked out by the server', o.subtotal === 450000 && o.commission === 45000 && o.netEarning === 405000 && o.customerLabel === 'Chidinma O.')
 ok('advancing is decided by the server', (await V().advanceOrder('ade@shop.ng', 'o1')).ok && ws().orders[0].status === 'confirmed')
 ok('declining sends the reason', (await V().cancelOrder('ade@shop.ng', 'o1', 'Wood supplier ran out of walnut.')).ok && db.orders[0].cancelReason === 'Wood supplier ran out of walnut.' && ws().orders[0].status === 'cancelled')
+
+console.log('\nPayouts')
+db.orders[0].status = 'delivered'; db.orders[0].payoutId = 'po1'
+db.payouts.push({ id: 'po1', reference: 'PAY-1001', amountKobo: 40_500_000, orderIds: ['o1'], paidAt: '2026-11-27T10:00:00.000Z', bankLabel: 'GTBank ••••6789' })
+await V().syncWorkspace()
+ok('paid payouts arrive in naira with the masked account', ws().payouts.length === 1 && ws().payouts[0].amount === 405000 && ws().payouts[0].bankLabel === 'GTBank ••••6789' && ws().payouts[0].reference === 'PAY-1001')
+ok('the order is marked as paid out', ws().orders[0].payoutId === 'po1')
 
 console.log('\nApplication')
 V().updateProfile('ade@shop.ng', p => ({ ...p, business: { ...p.business, city: 'Abuja', state: 'FCT (Abuja)' }, documents: [{ id: 'local1', kind: 'government_id', fileName: 'id.jpg', sizeKb: 120, uploadedAt: 't' }] }))

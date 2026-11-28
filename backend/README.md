@@ -175,3 +175,14 @@ Editing anything but stock on a live listing sends it back to review. Commission
 
 ## Sending codes
 `NOTIFIER=live` sends SMS via Termii and email via Resend (see `.env.example`). Production refuses to start without it.
+
+## Payouts and refunds
+
+| Endpoint | Who | What |
+| --- | --- | --- |
+| `GET /api/vendor/payouts` | vendor | Completed payouts (masked account) |
+| `GET /api/admin/payouts/due` | staff | Vendors owed money, bank details, orders held for review |
+| `POST /api/admin/payouts` | staff | `{vendorId}`: lock everything due into a pending payout |
+| `POST /api/admin/payouts/:id/paid` | staff | `{transferRef}`: record the transfer |
+| `POST /api/admin/payouts/:id/cancel` | staff | `{reason}`: release a pending payout |
+| `GET /api/admin/orders` | staff | Includes `paymentReference` and `attention` flags for the refund screen |

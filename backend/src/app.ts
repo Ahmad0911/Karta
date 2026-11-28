@@ -4,6 +4,7 @@ import { authenticate } from './modules/auth/middleware.ts'
 import { authRoutes } from './modules/auth/routes.ts'
 import { conversationRoutes } from './modules/conversations/routes.ts'
 import { fulfilmentRoutes } from './modules/marketplace/fulfilment.ts'
+import { payoutRoutes } from './modules/marketplace/payouts.ts'
 import { listingRoutes } from './modules/marketplace/listings.ts'
 import { orderRoutes } from './modules/orders/routes.ts'
 import { paymentRoutes } from './modules/payments/routes.ts'
@@ -31,6 +32,7 @@ export function createApp(deps: Deps) {
   orderRoutes(router, deps)
   listingRoutes(router, deps)
   fulfilmentRoutes(router, deps)
+  payoutRoutes(router, deps)
   uploadRoutes(router, deps)
   paymentRoutes(router, deps)
   requestRoutes(router, deps)

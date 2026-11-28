@@ -33,7 +33,7 @@ export interface PaymentRequest {
   /** Where the provider sends the customer afterwards. */
   returnUrl: string
   /** What is being bought. The server prices these itself; the amount above is only cross-checked. */
-  lines?: { listingId: string; qty: number }[]
+  lines?: { listingId: string; qty: number; assembly?: boolean }[]
   ship?: { state: string; city: string; address: string }
 }
 

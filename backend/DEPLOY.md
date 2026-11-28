@@ -80,3 +80,29 @@ Dashboard → **Settings → API Keys & Webhooks** → Test Webhook URL:
 
 Sign in as the admin → add a vendor and approve → list a product → buy it with a test card → the vendor sees the order.
 Never put keys in GitHub: set them only in the host's Variables screen.
+
+## 6. Verification codes (SMS and email)
+
+Customers and vendors must verify their phone and email. The API already knows how to send them; it needs two accounts.
+Both take a little time to approve, so start them early. (Screens change, so follow each provider's own instructions.)
+
+**SMS: Termii (termii.com).** Create an account, complete their business verification, register a **Sender ID**
+(for example `Karta`; approval can take a few days) and copy your **API key**. Set `TERMII_API_KEY`, `TERMII_SENDER_ID`,
+and `TERMII_CHANNEL=dnd` (the route that also reaches numbers on Nigeria's Do-Not-Disturb list).
+
+**Email: Resend (resend.com).** Create an account, **add your domain** and add the DNS records they show (this proves
+you own it), then create an **API key**. Set `RESEND_API_KEY` and `EMAIL_FROM=Karta <hello@yourdomain.com>` (the address
+must be on the domain you verified).
+
+Then set `NOTIFIER=live` and remove `STAGING`. Until then, in staging, codes appear in the host's log.
+
+## 7. Paying vendors
+
+Admin → **Vendor payouts**. Earnings become payable 7 days after delivery. Click **Create payout**, send the money from
+your bank (or Paystack dashboard) to the account shown, then paste the transfer reference and press **I've sent the
+money**. The vendor then sees it as paid. The system never moves money by itself.
+
+## 8. Refunds
+
+Admin → **Orders & refunds**. Orders that need you (a vendor declined, an item sold out, a customer paid twice) are listed
+first. Pick **Refund…**, confirm the amount and give a reason. The money goes back to the customer's card through Paystack.

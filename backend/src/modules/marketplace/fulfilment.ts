@@ -11,7 +11,7 @@ import { VENDOR_CAN_DECLINE, VENDOR_NEXT, commissionKobo } from './policy.ts'
 type VoStatus = 'new' | 'confirmed' | 'packing' | 'ready_for_pickup' | 'with_logistics' | 'delivered' | 'cancelled'
 interface VoRow {
   id: string; order_id: string; vendor_id: string; number: string; status: VoStatus; subtotal_kobo: number; commission_kobo: number; net_kobo: number
-  cancel_reason: string | null; created_at: string; updated_at: string; delivered_at: string | null
+  cancel_reason: string | null; created_at: string; updated_at: string; delivered_at: string | null; payout_id: string | null
 }
 interface OrderRow { id: string; number: string; customer_id: string; ship_state: string; ship_city: string; ship_address: string; created_at: string; paid_at: string | null }
 
@@ -47,6 +47,8 @@ export function fulfilmentRoutes(router: Router, deps: Deps) {
       id: vo.id, number: vo.number, customerLabel: rest.length ? `${first} ${rest[rest.length - 1]![0]!.toUpperCase()}.` : first,
       city: o.ship_city, state: o.ship_state, lines: lines(vo), subtotalKobo: vo.subtotal_kobo, commissionKobo: vo.commission_kobo, netEarningKobo: vo.net_kobo,
       status: vo.status, placedAt: o.paid_at ?? o.created_at, deliveredAt: vo.delivered_at, cancelReason: vo.cancel_reason, events: events(vo.id),
+      // Marked paid only once the money has really been sent.
+      payoutId: vo.payout_id && get(db, "SELECT 1 AS x FROM payouts WHERE id = ? AND status = 'paid'", vo.payout_id) ? vo.payout_id : null,
     }
   }
 
@@ -120,8 +122,17 @@ export function fulfilmentRoutes(router: Router, deps: Deps) {
     return {
       orders: rows.map((o) => {
         const c = get<{ email: string; name: string }>(db, 'SELECT email,name FROM users WHERE id = ?', o.customer_id)
+        const pay = get<{ reference: string }>(db, "SELECT reference FROM payments WHERE order_id = ? AND status = 'paid' ORDER BY paid_at LIMIT 1", o.id)
+        const flags = all<{ action: string; entity_id: string }>(db,
+          "SELECT action, entity_id FROM audit_log WHERE (entity_type = 'order' AND entity_id = ? AND action = 'payment.oversold') OR (entity_type = 'payment' AND entity_id IN (SELECT reference FROM payments WHERE order_id = ?) AND action IN ('payment.duplicate','payment.amount_mismatch'))", o.id, o.id)
+        const declined = all<VoRow>(db, "SELECT * FROM vendor_orders WHERE order_id = ? AND status = 'cancelled'", o.id)
         return {
           id: o.id, number: o.number, status: o.status, totalKobo: o.total_kobo, refundedKobo: o.refunded_kobo, placedAt: o.paid_at ?? o.created_at, customerName: c?.name, customerEmail: c?.email,
+          paymentReference: pay?.reference ?? null,
+          attention: [
+            ...declined.map((d) => ({ kind: 'vendor_declined', text: `A vendor declined ${d.number}. The customer is owed ${(d.subtotal_kobo / 100).toLocaleString('en-NG')} naira.`, refundDueKobo: d.subtotal_kobo })),
+            ...flags.map((f) => ({ kind: f.action.replace('payment.', ''), text: f.action === 'payment.duplicate' ? 'This order was paid twice. Refund the extra payment.' : f.action === 'payment.oversold' ? 'An item sold out before payment finished. Refund or restock.' : 'A payment arrived for the wrong amount. Check it.' })),
+          ],
           fulfilment: all<VoRow>(db, 'SELECT * FROM vendor_orders WHERE order_id = ?', o.id).map((vo) => ({ id: vo.id, number: vo.number, status: vo.status, vendorId: vo.vendor_id, subtotalKobo: vo.subtotal_kobo, cancelReason: vo.cancel_reason })),
         }
       }),

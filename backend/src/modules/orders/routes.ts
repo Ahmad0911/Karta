@@ -4,25 +4,26 @@ import { newId, randomToken } from '../../platform/crypto.ts'
 import { all, get, run, tx } from '../../platform/db.ts'
 import { conflict, forbidden, notFound, unprocessable } from '../../platform/errors.ts'
 import { requireAuth, requireRole, staffOnly, type Router } from '../../platform/http.ts'
-import { array, int, object, oneOf, parse, str } from '../../platform/validate.ts'
+import { array, bool, int, object, oneOf, optional, parse, str } from '../../platform/validate.ts'
 import { audit } from '../audit/audit.ts'
+import { POLICY } from '../marketplace/policy.ts'
 import { deliveryFeeKobo } from './delivery.ts'
 
 interface OrderRow {
   id: string; number: string; customer_id: string; status: string; ship_state: string; ship_city: string; ship_address: string
-  subtotal_kobo: number; delivery_kobo: number; total_kobo: number; refunded_kobo: number; created_at: string; paid_at: string | null
+  subtotal_kobo: number; delivery_kobo: number; assembly_kobo: number; total_kobo: number; refunded_kobo: number; created_at: string; paid_at: string | null
 }
-interface ListingRow { id: string; vendor_id: string; name: string; price_kobo: number; stock: number; status: string; reserved_for: string | null }
+interface ListingRow { id: string; vendor_id: string; name: string; price_kobo: number; stock: number; status: string; reserved_for: string | null; assembly_available: number }
 
 export function orderRoutes(router: Router, deps: Deps) {
   const { db, clock } = deps
 
-  const linesOf = (orderId: string) => all<{ listing_id: string; name: string; unit_price_kobo: number; qty: number; vendor_id: string; business_name: string | null }>(db, 'SELECT l.listing_id,l.name,l.unit_price_kobo,l.qty,l.vendor_id,u.business_name FROM order_lines l JOIN users u ON u.id = l.vendor_id WHERE l.order_id = ?', orderId)
+  const linesOf = (orderId: string) => all<{ listing_id: string; name: string; unit_price_kobo: number; qty: number; assembly_qty: number; vendor_id: string; business_name: string | null }>(db, 'SELECT l.listing_id,l.name,l.unit_price_kobo,l.qty,l.assembly_qty,l.vendor_id,u.business_name FROM order_lines l JOIN users u ON u.id = l.vendor_id WHERE l.order_id = ?', orderId)
   const dto = (o: OrderRow) => ({
     id: o.id, number: o.number, status: o.status,
     ship: { state: o.ship_state, city: o.ship_city, address: o.ship_address },
-    subtotalKobo: o.subtotal_kobo, deliveryKobo: o.delivery_kobo, totalKobo: o.total_kobo, refundedKobo: o.refunded_kobo,
-    lines: linesOf(o.id).map((l) => ({ listingId: l.listing_id, name: l.name, unitPriceKobo: l.unit_price_kobo, qty: l.qty, vendorId: l.vendor_id, vendorName: l.business_name ?? 'Karta vendor' })),
+    subtotalKobo: o.subtotal_kobo, assemblyKobo: o.assembly_kobo, deliveryKobo: o.delivery_kobo, totalKobo: o.total_kobo, refundedKobo: o.refunded_kobo,
+    lines: linesOf(o.id).map((l) => ({ listingId: l.listing_id, name: l.name, unitPriceKobo: l.unit_price_kobo, qty: l.qty, assembly: l.assembly_qty > 0, vendorId: l.vendor_id, vendorName: l.business_name ?? 'Karta vendor' })),
     fulfilment: all<{ number: string; status: string; updated_at: string; business_name: string | null }>(db,
       'SELECT vo.number, vo.status, vo.updated_at, u.business_name FROM vendor_orders vo JOIN users u ON u.id = vo.vendor_id WHERE vo.order_id = ? ORDER BY vo.number', o.id)
       .map((f) => ({ number: f.number, status: f.status, updatedAt: f.updated_at, vendorName: f.business_name ?? 'Vendor' })),
@@ -34,34 +35,43 @@ export function orderRoutes(router: Router, deps: Deps) {
     const user = ctx.user!
     if (!user.phoneVerified) throw forbidden('Please verify your phone number before ordering.', 'phone_not_verified')
     const body = parse({
-      lines: array(object({ listingId: str({ min: 1, max: 64 }), qty: int({ min: 1, max: 20 }) }), { max: 20 }),
+      lines: array(object({ listingId: str({ min: 1, max: 64 }), qty: int({ min: 1, max: 20 }), assembly: optional(bool()) }), { max: 20 }),
       ship: object({ state: str({ min: 2, max: 40 }), city: str({ min: 2, max: 80 }), address: str({ min: 8, max: 300, message: 'Enter the full delivery address.' }) }),
     }, ctx.body)
     if (body.lines.length === 0) throw unprocessable('lines', 'Your cart is empty.')
 
     return tx(db, () => {
-      const merged = new Map<string, number>()
-      for (const l of body.lines) merged.set(l.listingId, (merged.get(l.listingId) ?? 0) + l.qty)
+      const merged = new Map<string, { qty: number; assemblyQty: number }>()
+      for (const l of body.lines) {
+        const m = merged.get(l.listingId) ?? { qty: 0, assemblyQty: 0 }
+        m.qty += l.qty
+        if (l.assembly) m.assemblyQty += l.qty
+        merged.set(l.listingId, m)
+      }
 
       let subtotal = 0
-      const priced: { l: ListingRow; qty: number }[] = []
-      for (const [id, qty] of merged) {
-        const l = get<ListingRow>(db, "SELECT id,vendor_id,name,price_kobo,stock,status,reserved_for FROM listings WHERE id = ? AND status = 'live' AND (reserved_for IS NULL OR reserved_for = ?)", id, user.id)
+      let assembly = 0
+      const priced: { l: ListingRow; qty: number; assemblyQty: number }[] = []
+      for (const [id, { qty, assemblyQty }] of merged) {
+        const l = get<ListingRow>(db, "SELECT id,vendor_id,name,price_kobo,stock,status,reserved_for,assembly_available FROM listings WHERE id = ? AND status = 'live' AND (reserved_for IS NULL OR reserved_for = ?)", id, user.id)
         if (!l) throw unprocessable('lines', 'One of the items is no longer available.')
         if (l.vendor_id === user.id) throw unprocessable('lines', 'You can’t buy your own product.')
         if (l.stock < qty) throw conflict('out_of_stock', `Only ${l.stock} of “${l.name}” left.`)
+        // Assembly only where the maker offers it. A request for it elsewhere is refused, never silently dropped.
+        if (assemblyQty > 0 && !l.assembly_available) throw unprocessable('lines', `Assembly isn’t available for “${l.name}”.`)
         subtotal += l.price_kobo * qty
-        priced.push({ l, qty })
+        assembly += assemblyQty * POLICY.assemblyFeeKobo
+        priced.push({ l, qty, assemblyQty })
       }
 
       const delivery = deliveryFeeKobo(body.ship.state)
       const id = newId()
       const number = `KRT-${randomToken(5).replace(/[-_]/g, 'x').toUpperCase()}`
       const now = iso(clock.now())
-      run(db, `INSERT INTO orders (id,number,customer_id,status,ship_state,ship_city,ship_address,subtotal_kobo,delivery_kobo,total_kobo,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-        id, number, user.id, 'awaiting_payment', body.ship.state, body.ship.city, body.ship.address, subtotal, delivery, subtotal + delivery, now)
-      for (const { l, qty } of priced) run(db, 'INSERT INTO order_lines (id,order_id,listing_id,vendor_id,name,unit_price_kobo,qty) VALUES (?,?,?,?,?,?,?)', newId(), id, l.id, l.vendor_id, l.name, l.price_kobo, qty)
-      audit(deps, ctx, { action: 'order.created', entityType: 'order', entityId: id, meta: { totalKobo: subtotal + delivery } })
+      run(db, `INSERT INTO orders (id,number,customer_id,status,ship_state,ship_city,ship_address,subtotal_kobo,assembly_kobo,delivery_kobo,total_kobo,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+        id, number, user.id, 'awaiting_payment', body.ship.state, body.ship.city, body.ship.address, subtotal, assembly, delivery, subtotal + assembly + delivery, now)
+      for (const { l, qty, assemblyQty } of priced) run(db, 'INSERT INTO order_lines (id,order_id,listing_id,vendor_id,name,unit_price_kobo,qty,assembly_qty) VALUES (?,?,?,?,?,?,?,?)', newId(), id, l.id, l.vendor_id, l.name, l.price_kobo, qty, assemblyQty)
+      audit(deps, ctx, { action: 'order.created', entityType: 'order', entityId: id, meta: { totalKobo: subtotal + assembly + delivery } })
       ctx.json(201, dto(get<OrderRow>(db, 'SELECT * FROM orders WHERE id = ?', id) as OrderRow))
     })
   })

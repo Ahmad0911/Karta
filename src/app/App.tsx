@@ -47,6 +47,8 @@ import AdminLayout from '@/modules/admin/AdminLayout'
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
 import AdminVendorsPage from '@/pages/admin/AdminVendorsPage'
 import AdminVendorDetailPage from '@/pages/admin/AdminVendorDetailPage'
+import AdminOrdersPage from '@/pages/admin/AdminOrdersPage'
+import AdminPayoutsPage from '@/pages/admin/AdminPayoutsPage'
 import AdminListingsPage from '@/pages/admin/AdminListingsPage'
 import AdminReviewsPage from '@/pages/admin/AdminReviewsPage'
 import AdminStaffPage from '@/pages/admin/AdminStaffPage'
@@ -246,6 +248,8 @@ export default function App() {
           <Route path="vendors" element={<AdminVendorsPage />} />
           <Route path="vendors/:email" element={<AdminVendorDetailPage />} />
           <Route path="listings" element={<AdminListingsPage />} />
+          <Route path="orders" element={<AdminOrdersPage />} />
+          <Route path="payouts" element={<AdminPayoutsPage />} />
           <Route path="reviews" element={<AdminReviewsPage />} />
           <Route path="returns" element={<AdminReturnsPage />} />
           <Route path="support" element={<AdminSupportPage />} />
